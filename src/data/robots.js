@@ -1,0 +1,131 @@
+// Robot kits shown in the Robots section. `action` picks the animation played once the
+// exploded parts have assembled: walk (legged), drive (wheeled) or grab (arm).
+// `gallery` holds the real product-structure photos shown beside the story.
+const g = (id, files) => files.map((f) => `/robots/${id}/${f}`)
+
+export const ROBOTS = [
+  {
+    id: 'spiderpi',
+    name: 'SpiderPi Hexapod Robot',
+    tagline: 'Six-legged AI vision robot powered by Raspberry Pi',
+    action: 'walk',
+    actionLabel: 'walking',
+    image: '/robots/spiderpi/main.webp',
+    gallery: g('spiderpi', ['spider_product_structure.webp', 'spider_parts.webp', 'spi.webp']),
+    sections: [
+      { title: 'A hexapod that sees and thinks', body: 'SpiderPi walks on six legs driven by 18 high-voltage serial bus servos. An HD camera and a Raspberry Pi give it colour recognition, face tracking, line following and gesture control, all programmable in Python.' },
+      { title: 'Built from aluminium alloy', body: 'The anodised aluminium brackets and metal bearings keep every joint rigid, so the gait stays smooth even on uneven floors. The frame is strong enough to carry an arm or a lidar upgrade.' },
+      { title: 'Senses its surroundings', body: 'A glowing ultrasonic sensor measures distance for obstacle avoidance, an acceleration sensor keeps the body balanced and a dot-matrix module shows expressions and readings.' },
+      { title: 'Powered for long sessions', body: 'An 11.1V LiPo battery with an on-board voltage display powers the servos and the Pi. Charge it, power on and control the robot from the mobile app or your own code.' },
+    ],
+    specs: { Legs: '6 (18 DOF)', Controller: 'Raspberry Pi + servo controller', Servos: 'High-voltage serial bus servos', Sensors: 'HD camera, ultrasonic, IMU', Battery: '11.1V LiPo', Programming: 'Python, mobile app' },
+  },
+  {
+    id: 'spiderpi-pro',
+    name: 'SpiderPi Pro with Robotic Arm',
+    tagline: 'Hexapod plus a 5-DOF arm that picks up what it sees',
+    action: 'walk',
+    actionLabel: 'walking',
+    image: '/robots/spiderpi-pro/main.webp',
+    gallery: g('spiderpi-pro', ['spider_product_structure.webp']),
+    sections: [
+      { title: 'Walks, finds, grabs', body: 'SpiderPi Pro adds a robotic arm with an HD camera mounted on the gripper. It can recognise a coloured block, walk to it, pick it up and carry it to a target.' },
+      { title: 'Hand-eye coordination', body: 'Inverse kinematics lets you point the gripper to a coordinate instead of moving each joint by hand, which makes sorting and transport projects easy to code.' },
+      { title: 'Same strong platform', body: 'The six-legged aluminium body, ultrasonic sensor, IMU and LiPo battery are shared with SpiderPi, so all SpiderPi lessons work here too.' },
+    ],
+    specs: { Legs: '6 (18 DOF)', Arm: '5 DOF with gripper', Camera: 'HD on arm', Controller: 'Raspberry Pi', Battery: '11.1V LiPo' },
+  },
+  {
+    id: 'jethexa',
+    name: 'ROS Lidar Hexapod',
+    tagline: 'ROS hexapod with lidar SLAM and a 3D depth camera',
+    action: 'walk',
+    actionLabel: 'walking',
+    image: '/robots/jethexa/main.webp',
+    gallery: g('jethexa', ['spider_lidar.webp']),
+    sections: [
+      { title: 'Maps the room as it walks', body: 'A 360° lidar runs Gmapping, Hector, Karto and Cartographer SLAM, so the hexapod builds a map and navigates to points you click, avoiding obstacles on the way.' },
+      { title: '3D depth vision', body: 'The depth camera adds RGB-D mapping, object tracking with YOLO models and gesture recognition for hands-free control.' },
+      { title: 'ROS ready', body: 'A ROS controller and expansion board handle the 18 servos, IMU and battery monitoring, while you develop on the full ROS stack over WiFi or SSH.' },
+    ],
+    specs: { Legs: '6 (18 DOF)', Navigation: 'Lidar SLAM, multi-point navigation', Camera: '3D depth camera', Software: 'ROS, Python, YOLO', Control: 'App, VNC, SSH' },
+  },
+  {
+    id: 'puppypi',
+    name: 'Quadruped Robot Dog',
+    tagline: 'Four-legged Raspberry Pi robot dog with vision',
+    action: 'walk',
+    actionLabel: 'trotting',
+    image: '/robots/puppypi/main.webp',
+    gallery: g('puppypi', ['dogparts.webp']),
+    sections: [
+      { title: 'Agile on four legs', body: 'Eight coreless servos give the robot dog a natural trot, turns, and tricks like sitting, stretching and shaking hands.' },
+      { title: 'Metal body, active cooling', body: 'A metal structure protects the electronics and a cooling fan keeps the Raspberry Pi fast during long vision sessions.' },
+      { title: 'Vision and AI', body: 'The HD wide-angle camera enables colour tracking, face recognition and line patrol. A 7.4V 2200mAh LiPo battery powers it all.' },
+    ],
+    specs: { Legs: '4 (8 DOF)', Servos: 'Coreless servos', Controller: 'Raspberry Pi + extension board', Camera: 'HD wide-angle', Battery: '7.4V 2200mAh LiPo' },
+  },
+  {
+    id: 'mecanum-car',
+    name: 'Mecanum AI Vision Car',
+    tagline: 'Omnidirectional smart car with pan-tilt camera and voice box',
+    action: 'drive',
+    actionLabel: 'driving',
+    image: '/robots/mecanum-car/main.webp',
+    gallery: g('mecanum-car', ['car_exploded.webp', 'car_ar.webp']),
+    sections: [
+      { title: 'Moves in any direction', body: 'Four mecanum wheels on encoded TT motors let the car slide sideways, rotate on the spot and drive diagonally without turning.' },
+      { title: 'Sees, hears and talks', body: 'A pan-tilt HD camera tracks colours and faces, while the AI voice interaction box takes spoken commands. A glowing ultrasonic sensor handles obstacle avoidance.' },
+      { title: 'Follows lines', body: 'The 4-channel line follower lets the car run tracks and mazes. Everything runs on a Raspberry Pi with an expansion board and an 18650 battery pack.' },
+    ],
+    specs: { Drive: '4 mecanum wheels', Camera: 'HD wide-angle, pan-tilt', Sensors: 'Ultrasonic, 4-ch line follower', Voice: 'AI voice interaction box', Controller: 'Raspberry Pi' },
+  },
+  {
+    id: 'zorin',
+    name: 'Zorin ROS Mecanum Car',
+    tagline: 'Full-metal ROS car with lidar, depth camera and mic array',
+    action: 'drive',
+    actionLabel: 'driving',
+    image: '/robots/zorin/main.webp',
+    gallery: g('zorin', ['car_zorin_exploded.webp']),
+    sections: [
+      { title: 'Autonomous navigation', body: 'An STL-19P D500 lidar and a 3D depth camera give the car SLAM mapping, path planning and dynamic obstacle avoidance.' },
+      { title: 'Listens to you', body: 'A 6-channel microphone array locates the speaker and supports voice control, so you can call the car over.' },
+      { title: 'Industrial build', body: 'A full metal duralumin chassis, encoder geared motors and mecanum wheels carry an STM32 controller, expansion board and USB hub for add-ons.' },
+    ],
+    specs: { Chassis: 'Duralumin alloy', Lidar: 'STL-19P D500', Camera: '3D depth camera', Audio: '6-ch mic array', Controller: 'STM32 + ROS host' },
+  },
+  {
+    id: 'ackermann',
+    name: 'Ackermann Steering Chassis',
+    tagline: 'Car-like steering chassis for self-driving experiments',
+    action: 'drive',
+    actionLabel: 'driving',
+    image: '/robots/ackermann/main.webp',
+    framed: true,
+    gallery: g('ackermann', ['car2.webp', 'car.webp']),
+    sections: [
+      { title: 'Steers like a real car', body: 'An LD-1501MG high-precision servo turns the front wheels through an Ackermann linkage, so you can practise lane keeping and parking like a real vehicle.' },
+      { title: 'Encoded power', body: 'Two 12V encoded gear motors drive the rear wheels with speed feedback for accurate odometry.' },
+      { title: 'Room to grow', body: 'An anodised metal bracket with reserved expansion holes takes a Raspberry Pi, Jetson, lidar or camera on top.' },
+    ],
+    specs: { Steering: 'Ackermann, LD-1501MG servo', Motors: '2 × 12V encoded gear motors', Tyres: 'Solid rubber × 4', Frame: 'Anodised metal' },
+  },
+  {
+    id: 'robotic-arm',
+    name: '6-DOF Robotic Arm',
+    tagline: 'Desktop arm for pick-and-place and vision sorting',
+    action: 'grab',
+    actionLabel: 'picking up',
+    image: '/robots/robotic-arm/main.webp',
+    gallery: g('robotic-arm', ['robotic_arm.webp']),
+    sections: [
+      { title: 'Six degrees of freedom', body: 'Bus servos in every joint give the arm a wide reach and smooth motion, with position feedback for repeatable moves.' },
+      { title: 'Grip anything small', body: 'The parallel gripper picks up blocks, bottles and components. Pair it with a camera for colour sorting or a conveyor demo.' },
+      { title: 'Program it your way', body: 'Teach positions by hand, drag sliders in the app, or code inverse kinematics in Python on Arduino, ESP32 or Raspberry Pi.' },
+    ],
+    specs: { DOF: '6', Servos: 'Serial bus servos', Gripper: 'Parallel jaw', Control: 'App, PC software, Python' },
+  },
+]
+
+export const getRobot = (id) => ROBOTS.find((r) => r.id === id)

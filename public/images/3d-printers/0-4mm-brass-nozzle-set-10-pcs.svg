@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="800" height="800">
+<defs><radialGradient id="bg" cx="50%" cy="38%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#e9f1ff"/><stop offset="1" stop-color="#c9dcff"/></radialGradient>
+<radialGradient id="dome" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#94a3b8" stop-opacity=".5"/></radialGradient>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0c3a8c" flood-opacity=".35"/></filter></defs>
+<rect width="400" height="400" fill="url(#bg)"/>
+<circle cx="340" cy="60" r="90" fill="#3fd0ff" opacity=".08"/><circle cx="40" cy="360" r="80" fill="#0c3a8c" opacity=".06"/>
+<ellipse cx="200" cy="345" rx="130" ry="14" fill="#0c3a8c" opacity=".12"/>
+<g filter="url(#sh)"><g transform="translate(100 170)"><polygon points="0,0 30,0 30,50 15,70 0,50" fill="#d4b26a"/><rect x="-4" y="0" width="38" height="14" fill="#c7a35a"/></g><g transform="translate(145 170)"><polygon points="0,0 30,0 30,50 15,70 0,50" fill="#d4b26a"/><rect x="-4" y="0" width="38" height="14" fill="#c7a35a"/></g><g transform="translate(190 170)"><polygon points="0,0 30,0 30,50 15,70 0,50" fill="#d4b26a"/><rect x="-4" y="0" width="38" height="14" fill="#c7a35a"/></g><g transform="translate(235 170)"><polygon points="0,0 30,0 30,50 15,70 0,50" fill="#d4b26a"/><rect x="-4" y="0" width="38" height="14" fill="#c7a35a"/></g><g transform="translate(280 170)"><polygon points="0,0 30,0 30,50 15,70 0,50" fill="#d4b26a"/><rect x="-4" y="0" width="38" height="14" fill="#c7a35a"/></g></g></svg>

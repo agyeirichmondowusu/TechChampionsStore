@@ -52,3 +52,16 @@ admin "Champ AI endpoint" field to use another endpoint (POST `{messages}` → `
 | `src/components/RobotAssembly.jsx` | Scroll-driven exploded view → assembly → walk/drive/grab |
 | `scripts/prep_robots.py` | Regenerates robot cut-outs from the original photos |
 | `scripts/gen_seed.py` | Regenerates seed products, placeholder art and `supabase/seed.sql` |
+
+## Bulk updates from Excel
+
+Admin → **Excel import** lets you update the live catalogue from a spreadsheet (.xlsx or .csv).
+
+1. Click **Download catalogue (.xlsx)** to get every product as a sheet (or use your own sheet).
+2. Edit prices, stock, descriptions, etc. Add new rows for new products.
+3. Upload it. A preview shows which products will be updated, added, or need fixing.
+4. Click **Apply** and the website updates immediately.
+
+Rows match existing products by **Slug**, then by **Name** (case-insensitive). Empty cells keep the current value, so a sheet with just `Name` and `Price` only changes prices. New products need Name, Category and Price.
+
+Columns: Slug, Name, Category, Type, Price, Old Price, Remaining, Short Description, Description, Image, YouTube Link, Specs (`Voltage: 5V; Pins: 20`), Visible (Yes/No). The Image column can be a web link, or a file name like `esp32.jpg` that you select in the preview; it is uploaded to that category's folder in Supabase Storage.

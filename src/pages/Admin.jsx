@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ClipboardList, Edit3, ImagePlus, LayoutGrid, Package, Plus, Save, Search, Settings, Trash2, Upload, Video, X } from 'lucide-react'
+import { ClipboardList, Edit3, FileSpreadsheet, ImagePlus, LayoutGrid, Package, Plus, Save, Search, Settings, Trash2, Upload, Video, X } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import * as api from '../lib/api'
 import { CATEGORIES } from '../data/defaultSettings'
 import { cedi, slugify, youtubeId } from '../lib/format'
 import { isDemo } from '../lib/supabase'
 import { SOCIALS } from '../components/SocialLinks'
+// The Excel libraries only load when the admin opens the import tab.
+const AdminImport = lazy(() => import('./AdminImport'))
 
 const TABS = [
   { id: 'products', label: 'Products', Icon: Package },
+  { id: 'import', label: 'Excel import', Icon: FileSpreadsheet },
   { id: 'videos', label: 'Videos', Icon: Video },
   { id: 'settings', label: 'Site settings', Icon: Settings },
   { id: 'orders', label: 'Orders', Icon: ClipboardList },
@@ -48,6 +51,7 @@ export default function Admin() {
         </div>
       </div>
       {tab === 'products' && <ProductsAdmin />}
+      {tab === 'import' && <Suspense fallback={<p className="py-10 text-center text-slate-500">Loading…</p>}><AdminImport /></Suspense>}
       {tab === 'videos' && <VideosAdmin />}
       {tab === 'settings' && <SettingsAdmin />}
       {tab === 'orders' && <OrdersAdmin />}

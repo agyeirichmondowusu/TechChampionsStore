@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Bot, Cpu, Gauge, MessageCircle, Printer, RotateCcw, ShieldCheck, Truck, Zap, Cog } from 'lucide-react'
+import { ArrowRight, Bot, Cpu, Gauge, MessageCircle, Printer, Zap, Cog } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { CATEGORIES } from '../data/defaultSettings'
 import { ROBOTS } from '../data/robots'
@@ -69,33 +69,12 @@ function Hero() {
   )
 }
 
-const PERKS = [
-  { Icon: Truck, title: 'Nationwide delivery', text: 'Bus, STC and VIP parcel options' },
-  { Icon: RotateCcw, title: '20-day returns', text: 'Hassle-free return policy' },
-  { Icon: MessageCircle, title: 'WhatsApp ordering', text: 'No account needed to order' },
-  { Icon: ShieldCheck, title: 'Tested components', text: 'Checked before dispatch' },
-]
-
 export default function Home() {
   const { products, loading, settings } = useStore()
 
   return (
     <>
       <Hero />
-
-      <section className="container-x relative z-10 -mt-10">
-        <div className="grid grid-cols-2 gap-3 rounded-3xl bg-white p-4 shadow-card md:grid-cols-4 md:p-6">
-          {PERKS.map(({ Icon, title, text }) => (
-            <div key={title} className="flex items-center gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600"><Icon size={22} /></span>
-              <span>
-                <span className="block text-sm font-bold">{title}</span>
-                <span className="block text-xs text-slate-500">{text}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section className="container-x mt-14">
         <h2 className="section-title">Shop by category</h2>

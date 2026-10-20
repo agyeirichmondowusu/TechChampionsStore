@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Lock, Mail, User } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { signIn, signUp } from '../lib/api'
+import { getCurrentUser, signIn, signUp } from '../lib/api'
 import { isDemo } from '../lib/supabase'
 
 function Shell({ title, subtitle, children }) {
@@ -58,7 +58,7 @@ export function Login() {
         <button disabled={busy} className="btn-primary w-full py-3">{busy ? 'Logging in…' : 'Login'}</button>
       </form>
       <p className="mt-6 text-center text-sm text-slate-500">New here? <Link to="/signup" className="font-semibold text-brand-700 hover:underline">Create an account</Link></p>
-      {isDemo && <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Demo mode: the admin login is admin@techchampionstore.com with the password from VITE_DEMO_ADMIN_PASSWORD.</p>}
+      {isDemo && <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Demo mode: the first account you create becomes the admin. The built-in admin login is admin@techchampionstore.com with the password from VITE_DEMO_ADMIN_PASSWORD.</p>}
     </Shell>
   )
 }
@@ -80,8 +80,9 @@ export function Signup() {
       const { user, needsConfirmation } = await signUp(f)
       if (needsConfirmation) setMsg('Check your email to confirm your account, then log in.')
       else {
-        setUser(isDemo ? user : { id: user.id, email: user.email, name: f.name, isAdmin: false })
-        navigate('/')
+        const u = isDemo ? user : await getCurrentUser()
+        setUser(u)
+        navigate(u?.isAdmin ? '/admin' : '/')
       }
     } catch (e) {
       setErr(e.message)

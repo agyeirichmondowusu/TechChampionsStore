@@ -142,9 +142,12 @@ export async function getCurrentUser() {
   return { id: user.id, email: user.email, name: user.user_metadata?.name || user.email, isAdmin: await checkAdmin(user.id) }
 }
 
+// The first account to log in becomes admin (see migration 0002); later accounts are checked normally.
 async function checkAdmin(userId) {
-  const { data } = await supabase.from('admins').select('user_id').eq('user_id', userId).maybeSingle()
-  return !!data
+  const { data, error } = await supabase.rpc('claim_first_admin')
+  if (!error) return !!data
+  const { data: row } = await supabase.from('admins').select('user_id').eq('user_id', userId).maybeSingle()
+  return !!row
 }
 
 export async function signUp({ name, email, password }) {
@@ -152,8 +155,10 @@ export async function signUp({ name, email, password }) {
     const users = demoUsers()
     if (users.some((u) => u.email === email) || email === DEMO_ADMIN.email) throw new Error('An account with this email already exists.')
     // Demo mode only: credentials live in this browser's storage, never on a server.
-    LS.set('tcs_users', [...users, { name, email, password }])
-    const session = { id: email, email, name, isAdmin: false }
+    // The first account created becomes the store admin.
+    const isAdmin = users.length === 0
+    LS.set('tcs_users', [...users, { name, email, password, isAdmin }])
+    const session = { id: email, email, name, isAdmin }
     LS.set('tcs_session', session)
     return { user: session }
   }
@@ -171,7 +176,7 @@ export async function signIn({ email, password }) {
     }
     const u = demoUsers().find((x) => x.email === email && x.password === password)
     if (!u) throw new Error('Incorrect email or password.')
-    const session = { id: u.email, email: u.email, name: u.name, isAdmin: false }
+    const session = { id: u.email, email: u.email, name: u.name, isAdmin: !!u.isAdmin }
     LS.set('tcs_session', session)
     return session
   }

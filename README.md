@@ -13,7 +13,7 @@ npm run build             # production build in dist/
 
 Without Supabase keys the site runs in **demo mode**: the 46 seed products load from
 `src/data/seedProducts.json` and admin edits, uploads, accounts and orders are saved in the browser.
-Demo admin login: `admin@techchampionstore.com` / the `VITE_DEMO_ADMIN_PASSWORD` value (default `champion123`).
+The first account created in demo mode becomes admin; there is also a built-in admin login `admin@techchampionstore.com` / the `VITE_DEMO_ADMIN_PASSWORD` value (default `champion123`).
 
 ## Go live with Supabase
 
@@ -21,7 +21,8 @@ Demo admin login: `admin@techchampionstore.com` / the `VITE_DEMO_ADMIN_PASSWORD`
 2. In the SQL editor run `supabase/migrations/0001_init.sql`, then `supabase/seed.sql`.
    This creates `products`, `site_settings`, `orders`, `admins`, row-level security and the public
    `product-images` storage bucket (folders: `microcontrollers/`, `sensors/`, `actuators/`, `power/`, `3d-printers/`, `site/`).
-3. Sign up on the site, then make yourself admin:
+3. Run `supabase/migrations/0002_first_user_admin.sql`. The first account that signs up (or logs in while
+   there is no admin yet) becomes the admin. To add more admins later:
    `insert into admins (user_id, email) select id, email from auth.users where email = 'you@example.com';`
 4. Open `/admin` to add products with images, set YouTube tutorial links, grid size, contacts,
    social links, payment accounts, delivery options and hero images.

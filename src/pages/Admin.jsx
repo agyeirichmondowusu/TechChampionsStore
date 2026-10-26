@@ -319,7 +319,7 @@ function SettingsAdmin() {
 
   const save = async () => {
     setBusy(true)
-    const clean = { ...s, grid_columns: Math.min(8, Math.max(1, Number(s.grid_columns) || 4)), grid_rows: Math.max(1, Number(s.grid_rows) || 4), return_policy_days: Number(s.return_policy_days) || 20, delivery_options: s.delivery_options.map((o) => ({ ...o, fee: Number(o.fee) || 0, id: o.id || slugify(o.label) })) }
+    const clean = { ...s, grid_columns: Math.min(8, Math.max(1, Number(s.grid_columns) || 4)), grid_rows: Math.max(1, Number(s.grid_rows) || 4), return_policy_days: Number(s.return_policy_days) || 20, print_price_per_gram: Math.max(0, Number(s.print_price_per_gram) || 0), delivery_options: s.delivery_options.map((o) => ({ ...o, fee: Number(o.fee) || 0, id: o.id || slugify(o.label) })) }
     try {
       await api.saveSettings(clean)
       setSettings(clean)
@@ -366,6 +366,7 @@ function SettingsAdmin() {
           <div className="grid gap-4">
             <div><label className="label">Tagline (hero and footer)</label><textarea rows={2} className="input" value={s.tagline} onChange={set('tagline')} /></div>
             <div><label className="label">Return policy (days)</label><input type="number" className="input" value={s.return_policy_days} onChange={set('return_policy_days')} /></div>
+            <div><label className="label">3D print price per gram (₵)</label><input type="number" min="0" step="0.1" className="input" value={s.print_price_per_gram ?? 2} onChange={set('print_price_per_gram')} /><p className="mt-1 text-xs text-slate-500">The 3D slicer multiplies the model's filament weight by this to estimate the print cost.</p></div>
           </div>
         </Section>
       </div>

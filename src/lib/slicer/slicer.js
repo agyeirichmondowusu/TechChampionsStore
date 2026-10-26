@@ -2,8 +2,6 @@
 import { sliceContours } from './contours.js'
 import { SCALE, regionFromLoops, offset, offsetRound, diff, intersect, union, unionAll, open, islands, clipLines, bounds, area } from './clip.js'
 
-const PI4 = 1 - Math.PI / 4
-
 /** Layer tops: the first layer, then fixed steps until the model height is covered. */
 export function layerHeights(height, s) {
   const tops = [s.firstLayerHeight]
@@ -15,8 +13,11 @@ export function layerHeights(height, s) {
   return tops
 }
 
-/** Spacing between neighbouring extrusions of width w and height h (stadium cross-section). */
-export const lineSpacing = (w, h) => w - h * PI4
+/**
+ * Spacing between neighbouring extrusions. Like Cura, lines sit one line width apart and each one is
+ * treated as a w x h rectangle when computing filament, which keeps our numbers comparable with Cura's.
+ */
+export const lineSpacing = (w) => w
 
 const toFlat = (path) => {
   const f = new Array(path.length * 2)
@@ -27,8 +28,11 @@ const toFlat = (path) => {
   return f
 }
 
-/** Parallel lines at `angle`, `gap` mm apart on a global grid so they line up from layer to layer. */
-function hatch(region, gap, angle) {
+/**
+ * Parallel lines at `angle`, `gap` mm apart on a global grid so they line up from layer to layer.
+ * `shift` slides the grid sideways (cubic infill moves it with height to build stacked cubes).
+ */
+function hatch(region, gap, angle, shift = 0) {
   if (!region.length) return []
   const b = bounds(region)
   const c = Math.cos(angle), s = Math.sin(angle)
@@ -36,10 +40,11 @@ function hatch(region, gap, angle) {
   const along = corners.map(([x, y]) => x * c + y * s)
   const across = corners.map(([x, y]) => -x * s + y * c)
   const g = gap * SCALE
+  const sh = (((shift * SCALE) % g) + g) % g
   const a0 = Math.min(...along) - g, a1 = Math.max(...along) + g
   const lines = []
-  for (let k = Math.floor(Math.min(...across) / g); k * g <= Math.max(...across); k++) {
-    const n = k * g
+  for (let k = Math.floor((Math.min(...across) - sh) / g); k * g + sh <= Math.max(...across); k++) {
+    const n = k * g + sh
     lines.push([
       { X: Math.round(a0 * c - n * s), Y: Math.round(a0 * s + n * c) },
       { X: Math.round(a1 * c - n * s), Y: Math.round(a1 * s + n * c) },
@@ -48,11 +53,14 @@ function hatch(region, gap, angle) {
   return clipLines(lines, region).map(toFlat)
 }
 
-/** Fills `area` (the material boundary) with lines; centrelines sit half a spacing inside it. */
-function fillLines(areaPaths, spacing, gap, angles, overlap) {
-  const centre = offset(areaPaths, -spacing / 2 + overlap)
+/**
+ * Fills `area` (the material boundary) with lines. `inset` is how far centrelines stay inside the
+ * boundary (half a line for skin, none for sparse infill) before `overlap` pushes them into the walls.
+ */
+function fillLines(areaPaths, inset, gap, angles, overlap, shift = 0) {
+  const centre = offset(areaPaths, -inset + overlap)
   const out = []
-  for (const a of angles) out.push(...hatch(centre, gap, a))
+  for (const a of angles) out.push(...hatch(centre, gap, a, shift))
   return out
 }
 
@@ -71,6 +79,7 @@ const deg = Math.PI / 180
 function infillAngles(pattern, layer) {
   if (pattern === 'grid') return [45 * deg, 135 * deg]
   if (pattern === 'triangles') return [0, 60 * deg, 120 * deg]
+  if (pattern === 'cubic') return [45 * deg, 165 * deg, 285 * deg]
   return [(layer % 2 ? 135 : 45) * deg]
 }
 
@@ -97,7 +106,7 @@ export function sliceModel(mesh, s, progress = () => {}) {
   // Walls and the area left for infill, per island.
   const layers = new Array(L)
   for (let i = 0; i < L; i++) {
-    const sp = lineSpacing(w, hs[i])
+    const sp = lineSpacing(w)
     const isl = islands(regions[i]).map((poly) => {
       const walls = []
       for (let k = 0; k < s.walls; k++) {
@@ -131,8 +140,11 @@ export function sliceModel(mesh, s, progress = () => {}) {
       let below = regions[i - 1] || []
       for (let k = 2; k <= s.bottomLayers && below.length; k++) below = intersect(below, regions[i - k] || [])
       const botZone = s.bottomLayers ? diff(lay.fill, below) : []
-      solid = open(unionAll(topZone, botZone), w * 0.3)
-      solid = intersect(solid, lay.fill)
+      // As in Cura: drop skin narrower than the walls ("preshrink"), then grow what is left by the wall
+      // thickness so it anchors into the surrounding infill ("expand skins").
+      const wallsWidth = s.walls * w
+      const grow = (zone) => offset(offset(zone, -wallsWidth / 2), wallsWidth / 2 + wallsWidth)
+      solid = intersect(unionAll(grow(topZone), grow(botZone)), lay.fill)
     }
     topSurf = s.topLayers ? open(intersect(topSurf, solid), w * 0.3) : []
     lay.top = topSurf
@@ -148,7 +160,7 @@ export function sliceModel(mesh, s, progress = () => {}) {
   let pos = [s.bedCenter[0], s.bedCenter[1]]
   for (let i = 0; i < L; i++) {
     const lay = layers[i]
-    const sp = lineSpacing(w, lay.h)
+    const sp = lineSpacing(w)
     const paths = []
     const add = (type, pts, closed) => pts.length >= 4 && paths.push({ type, pts, closed })
 
@@ -193,20 +205,21 @@ export function sliceModel(mesh, s, progress = () => {}) {
         }
       }
       if (isl.fill.length) {
-        const overlap = s.infillOverlap * w
         const top = intersect(lay.top, isl.fill)
         const solid = intersect(lay.solid, isl.fill)
         const sparse = intersect(lay.sparse, isl.fill)
         const skinAngle = [(i % 2 ? 135 : 45) * deg]
         const groups = [
-          ['top', fillLines(top, sp, sp, skinAngle, overlap)],
-          ['solid', fillLines(solid, sp, sp, skinAngle, overlap)],
+          ['top', fillLines(top, sp / 2, sp, skinAngle, s.skinOverlap * w)],
+          ['solid', fillLines(solid, sp / 2, sp, skinAngle, s.skinOverlap * w)],
         ]
         if (s.infillDensity > 0 && sparse.length) {
           const pat = s.infillPattern
-          const dirs = pat === 'grid' ? 2 : pat === 'triangles' ? 3 : 1
+          const dirs = pat === 'grid' ? 2 : pat === 'triangles' || pat === 'cubic' ? 3 : 1
           const gap = (sp * dirs) / s.infillDensity
-          groups.push(['infill', pat === 'concentric' ? concentric(sparse, sp, sp / s.infillDensity) : fillLines(sparse, sp, gap, infillAngles(pat, i), overlap)])
+          // Cubic: three line sets whose grid slides with height, so the walls lean and form cubes standing on a corner.
+          const shift = pat === 'cubic' ? lay.z * Math.SQRT1_2 : 0
+          groups.push(['infill', pat === 'concentric' ? concentric(sparse, sp, sp / s.infillDensity) : fillLines(sparse, 0, gap, infillAngles(pat, i), s.infillOverlap * w, shift)])
         }
         for (const [type, lines] of groups) {
           const ordered = orderPaths(lines.map((pts) => ({ type, pts, closed: type === 'infill' && s.infillPattern === 'concentric' })), pos)

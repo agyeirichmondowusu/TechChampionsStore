@@ -274,9 +274,10 @@ export default function Slicer() {
   const set = (k) => (v) => setUi((u) => ({ ...u, [k]: v }))
   const busy = status.state === 'loading' || status.state === 'slicing'
   const st = result?.stats
+  const pricePerGram = Number(site.print_price_per_gram) || 0
   const filamentProduct = products.find((p) => p.slug === s.material.slug)
   const waText = model && st
-    ? `Hi TechChampionStore, I'd like this part printed:\n• File: ${model.name}\n• Size: ${place.size.map((v) => v.toFixed(1)).join(' x ')} mm\n• Material: ${s.material.name}, ${Math.round(ui.infillDensity * 100)}% infill, ${ui.layerHeight} mm layers\n• Estimate: ${formatTime(st.time)}, ${st.grams.toFixed(0)} g\nI'll send the STL file here.`
+    ? `Hi TechChampionStore, I'd like this part printed:\n• File: ${model.name}\n• Size: ${place.size.map((v) => v.toFixed(1)).join(' x ')} mm\n• Material: ${s.material.name}, ${Math.round(ui.infillDensity * 100)}% infill, ${ui.layerHeight} mm layers\n• Estimate: ${formatTime(st.time)}, ${st.grams.toFixed(0)} g, ${cedi(st.grams * pricePerGram)}\nI'll send the STL file here.`
     : ''
 
   return (
@@ -288,7 +289,7 @@ export default function Slicer() {
             <span className="chip bg-white/10 text-brand-200"><Printer size={14} className="mr-1" /> 3D print studio</span>
             <h1 className="mt-3 font-display text-3xl font-black sm:text-4xl">Slice your STL right here</h1>
             <p className="mt-2 max-w-2xl text-brand-100">
-              Drop in a model, pick your printer and material, and get printer-ready G-code with a layer-by-layer preview, print time and filament cost. Everything runs in your browser, so your file never leaves your device.
+              Drop in a model, pick your printer and material, and get printer-ready G-code with a layer-by-layer preview, print time and cost. Everything runs in your browser, so your file never leaves your device.
             </p>
           </div>
           <button onClick={() => fileInput.current.click()} className="btn-primary" disabled={busy}>
@@ -611,7 +612,7 @@ export default function Slicer() {
               <div className={`grid grid-cols-2 gap-2 ${stale ? 'opacity-60' : ''}`}>
                 <Stat icon={Clock} label="Print time" value={formatTime(st.time)} />
                 <Stat icon={Weight} label="Filament" value={`${st.grams.toFixed(1)} g`} sub={`${(st.filamentMm / 1000).toFixed(2)} m`} />
-                <Stat icon={Wallet} label="Material cost" value={cedi(st.cost)} sub={`${s.material.name} at ${cedi(s.material.pricePerKg)}/kg`} />
+                <Stat icon={Wallet} label="Print cost" value={cedi(st.grams * pricePerGram)} sub={`${cedi(pricePerGram)} per gram`} />
                 <Stat icon={Ruler} label="Layers" value={st.layers.toLocaleString()} sub={`${st.height.toFixed(2)} mm tall`} />
               </div>
               <p className="mt-2 text-[11px] text-slate-400">Sliced in {(st.sliceMs / 1000).toFixed(1)} s. Time is an estimate that includes about 2 minutes for heating.</p>

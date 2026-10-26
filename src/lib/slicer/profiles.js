@@ -34,10 +34,10 @@ export const PRINTERS = [
 ]
 
 export const MATERIALS = [
-  { id: 'pla', name: 'PLA', nozzle: 205, bed: 60, fan: 100, density: 1.24, pricePerKg: 220, slug: 'pla-filament-1-75mm-1kg-blue' },
-  { id: 'petg', name: 'PETG', nozzle: 235, bed: 75, fan: 40, density: 1.27, pricePerKg: 250, slug: 'petg-filament-1-75mm-1kg-black' },
-  { id: 'abs', name: 'ABS', nozzle: 245, bed: 100, fan: 0, density: 1.04, pricePerKg: 260 },
-  { id: 'tpu', name: 'TPU (flexible)', nozzle: 225, bed: 50, fan: 60, density: 1.21, pricePerKg: 350, maxSpeed: 30 },
+  { id: 'pla', name: 'PLA', nozzle: 205, bed: 60, fan: 100, density: 1.24, slug: 'pla-filament-1-75mm-1kg-blue' },
+  { id: 'petg', name: 'PETG', nozzle: 235, bed: 75, fan: 40, density: 1.27, slug: 'petg-filament-1-75mm-1kg-black' },
+  { id: 'abs', name: 'ABS', nozzle: 245, bed: 100, fan: 0, density: 1.04 },
+  { id: 'tpu', name: 'TPU (flexible)', nozzle: 225, bed: 50, fan: 60, density: 1.21, maxSpeed: 30 },
 ]
 
 export const QUALITY = [

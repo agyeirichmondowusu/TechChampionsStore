@@ -152,7 +152,6 @@ export function writeGcode(sliced, s, info = {}) {
     time,
     filamentMm: filament,
     grams,
-    cost: (grams / 1000) * material.pricePerKg,
     layers: layers.length,
     height: layers.length ? layers[layers.length - 1].z : 0,
   }

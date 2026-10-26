@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   whatsapp_number: '0595189153',
   address: 'KNUST, College of Science, Kumasi, Ghana',
   return_policy_days: 20,
+  print_price_per_gram: 2, // ₵ per gram of filament, used for the 3D slicer's cost estimate
   socials: {
     tiktok: 'https://www.tiktok.com/',
     youtube: 'https://www.youtube.com/',

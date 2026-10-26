@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ClipboardList, Edit3, FileSpreadsheet, ImagePlus, LayoutGrid, Package, Plus, Save, Search, Settings, Trash2, Upload, Video, X } from 'lucide-react'
+import { BarChart3, ClipboardList, Mail, Edit3, FileSpreadsheet, ImagePlus, LayoutGrid, Package, Plus, Save, Search, Settings, Trash2, Upload, Video, X } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import * as api from '../lib/api'
 import { CATEGORIES } from '../data/defaultSettings'
@@ -9,6 +9,8 @@ import { isDemo } from '../lib/supabase'
 import { SOCIALS } from '../components/SocialLinks'
 // The Excel libraries only load when the admin opens the import tab.
 const AdminImport = lazy(() => import('./AdminImport'))
+const AdminAnalytics = lazy(() => import('./AdminAnalytics'))
+const AdminEmails = lazy(() => import('./AdminEmails'))
 
 const TABS = [
   { id: 'products', label: 'Products', Icon: Package },
@@ -16,6 +18,8 @@ const TABS = [
   { id: 'videos', label: 'Videos', Icon: Video },
   { id: 'settings', label: 'Site settings', Icon: Settings },
   { id: 'orders', label: 'Orders', Icon: ClipboardList },
+  { id: 'visitors', label: 'Visitors', Icon: BarChart3 },
+  { id: 'emails', label: 'Emails', Icon: Mail },
 ]
 
 export default function Admin() {
@@ -55,6 +59,8 @@ export default function Admin() {
       {tab === 'videos' && <VideosAdmin />}
       {tab === 'settings' && <SettingsAdmin />}
       {tab === 'orders' && <OrdersAdmin />}
+      {tab === 'visitors' && <Suspense fallback={<p className="py-10 text-center text-slate-500">Loading…</p>}><AdminAnalytics /></Suspense>}
+      {tab === 'emails' && <Suspense fallback={<p className="py-10 text-center text-slate-500">Loading…</p>}><AdminEmails /></Suspense>}
     </div>
   )
 }
@@ -366,6 +372,13 @@ function SettingsAdmin() {
           <div className="grid gap-4">
             <div><label className="label">Tagline (hero and footer)</label><textarea rows={2} className="input" value={s.tagline} onChange={set('tagline')} /></div>
             <div><label className="label">Return policy (days)</label><input type="number" className="input" value={s.return_policy_days} onChange={set('return_policy_days')} /></div>
+            <div><label className="label">Visitor tracking</label>
+              <select className="input" value={s.analytics_mode || 'opt_in'} onChange={set('analytics_mode')}>
+                <option value="opt_in">Ask first: count visitors who click Allow (recommended)</option>
+                <option value="notice">Notice only: count everyone unless they opt out</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500">"Ask first" is the safest under Ghana's Data Protection Act; "Notice only" counts more visitors.</p>
+            </div>
             <div><label className="label">3D print price per gram (₵)</label><input type="number" min="0" step="0.1" className="input" value={s.print_price_per_gram ?? 2} onChange={set('print_price_per_gram')} /><p className="mt-1 text-xs text-slate-500">The 3D slicer multiplies the model's filament weight by this to estimate the print cost.</p></div>
           </div>
         </Section>
@@ -442,7 +455,9 @@ function ListEditor({ rows, onChange, blank, fields }) {
 const STATUSES = ['new', 'paid', 'dispatched', 'completed', 'cancelled']
 
 function OrdersAdmin() {
+  const { notify } = useStore()
   const [orders, setOrders] = useState(null)
+  const [emailCustomer, setEmailCustomer] = useState(true)
   useEffect(() => { api.listOrders().then(setOrders).catch(() => setOrders([])) }, [])
 
   if (!orders) return <p className="text-slate-500">Loading orders…</p>
@@ -451,10 +466,19 @@ function OrdersAdmin() {
   const setStatus = async (o, status) => {
     await api.updateOrderStatus(o.id, status)
     setOrders(orders.map((x) => (x.id === o.id ? { ...x, status } : x)))
+    if (emailCustomer && o.customer_email && status !== 'new') {
+      api.sendEmail({ type: 'order_status', order_id: o.id, order_code: o.order_code, status, to: o.customer_email })
+        .then((r) => notify(r?.demo ? 'Demo mode: status email logged, not sent' : `Emailed ${o.customer_email}`))
+        .catch((e) => alert(`Status saved, but the email failed: ${e.message}`))
+    }
   }
 
   return (
     <div className="space-y-3">
+      <label className="flex items-center justify-end gap-2 text-sm text-slate-600">
+        <input type="checkbox" checked={emailCustomer} onChange={(e) => setEmailCustomer(e.target.checked)} className="h-4 w-4 accent-brand-600" />
+        Email the customer when I change an order's status
+      </label>
       {orders.map((o) => (
         <div key={o.id} className="card p-5">
           <div className="flex flex-wrap items-center gap-3">
@@ -464,7 +488,7 @@ function OrdersAdmin() {
               {STATUSES.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
-          <p className="mt-2 text-sm"><b>{o.customer_name}</b> · {o.customer_phone} · {o.delivery_option}</p>
+          <p className="mt-2 text-sm"><b>{o.customer_name}</b> · {o.customer_phone}{o.customer_email && <> · <a href={`mailto:${o.customer_email}`} className="text-brand-700">{o.customer_email}</a></>} · {o.delivery_option}</p>
           <ul className="mt-2 text-sm text-slate-600">
             {o.items.map((i) => <li key={i.id}>{i.qty} × {i.name} ({cedi(i.price)})</li>)}
           </ul>

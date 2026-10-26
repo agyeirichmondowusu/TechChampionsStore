@@ -1,8 +1,11 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Mail, MapPin, Phone } from 'lucide-react'
 import { FaWhatsapp } from 'react-icons/fa'
 import { useStore } from '../context/StoreContext'
 import { cedi, waNumber } from '../lib/format'
+import { getConsent, gpcEnabled, setConsent } from '../lib/analytics'
+import { unsubscribe } from '../lib/api'
 import SocialLinks from '../components/SocialLinks'
 
 function Page({ title, kicker, children }) {
@@ -119,6 +122,57 @@ export function Faq() {
         </details>
       ))}
       <p className="mt-6">Still stuck? <Link to="/contact" className="font-semibold text-brand-700">Contact us</Link>.</p>
+    </Page>
+  )
+}
+
+export function Privacy() {
+  const { settings } = useStore()
+  const [consent, setLocal] = useState(getConsent)
+  const choose = (v) => { setConsent(v); setLocal(v) }
+  return (
+    <Page title="Privacy and cookies" kicker="Your data">
+      <p>We keep this short: we collect only what we need to run the store and to understand how many people visit it.</p>
+      <h2>Visit statistics</h2>
+      <p>With your permission we store a random ID in your browser (localStorage, which works like a cookie) so we can count visits, tell new visitors from returning ones, and see which pages are popular. Each visit records the page, the time, your device type and browser, the site that linked you here, and an approximate location (country, region and city) worked out from your IP address. We do not store your IP address, and we never use GPS or your exact location.</p>
+      <p>We keep visit statistics for up to 13 months. They are only visible to the store admin and are never sold or used for advertising. If your browser sends a Global Privacy Control signal, we do not count you at all.</p>
+      <div className="not-prose my-4 flex flex-wrap items-center gap-3 rounded-2xl bg-brand-50 p-4 text-sm">
+        <span className="font-semibold text-navy-900">
+          {gpcEnabled() ? 'Your browser asks not to be tracked, so we do not count your visits.' : consent === 'granted' ? 'You allowed visit statistics.' : consent === 'denied' ? 'You turned visit statistics off.' : 'You have not chosen yet.'}
+        </span>
+        {!gpcEnabled() && (
+          <span className="ml-auto flex gap-2">
+            <button onClick={() => choose('denied')} className="btn-ghost px-4 py-1.5">Turn off</button>
+            <button onClick={() => choose('granted')} className="btn-primary px-4 py-1.5">Allow</button>
+          </span>
+        )}
+      </div>
+      <h2>Orders and emails</h2>
+      <p>When you order we keep your name, phone number, optional email, delivery choice and items so we can deliver and follow up. If you give an email we send an order confirmation and updates about that order. Product news is only sent if you subscribe, and every such email has an unsubscribe link.</p>
+      <h2>Questions or deletion</h2>
+      <p>To see or delete what we hold about you, email <a href={`mailto:${settings.email}`} className="font-semibold text-brand-700">{settings.email}</a> or WhatsApp {settings.whatsapp_number}.</p>
+    </Page>
+  )
+}
+
+export function Unsubscribe() {
+  const [params] = useSearchParams()
+  const [state, setState] = useState('working')
+  useEffect(() => {
+    const token = params.get('token')
+    if (!token) return setState('missing')
+    unsubscribe(token).then((ok) => setState(ok ? 'done' : 'missing')).catch(() => setState('error'))
+  }, [params])
+  const text = {
+    working: 'Unsubscribing…',
+    done: 'You are unsubscribed. You will not get product updates from us any more. Order emails for orders you place still arrive.',
+    missing: 'This unsubscribe link is not valid. If you keep getting emails, reply to one and we will remove you.',
+    error: 'Something went wrong. Please try the link again in a moment.',
+  }[state]
+  return (
+    <Page title="Email updates" kicker="Unsubscribe">
+      <p>{text}</p>
+      <p><Link to="/" className="font-semibold text-brand-700">Back to the store</Link></p>
     </Page>
   )
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock, Mail, MapPin, Phone, RotateCcw } from 'lucide-react'
 import { FaWhatsapp } from 'react-icons/fa'
@@ -5,6 +6,7 @@ import { useStore } from '../context/StoreContext'
 import { CATEGORIES } from '../data/defaultSettings'
 import { waNumber } from '../lib/format'
 import SocialLinks from './SocialLinks'
+import { subscribe } from '../lib/api'
 
 const Col = ({ title, children }) => (
   <div>
@@ -57,6 +59,7 @@ export default function Footer() {
           <L to="/delivery">Delivery options</L>
           <L to="/faq">FAQ</L>
           <L to="/contact">Contact us</L>
+          <L to="/privacy">Privacy and cookies</L>
           <L to="/meet-champ">Ask Champ (AI)</L>
         </Col>
         <Col title="Company">
@@ -69,6 +72,7 @@ export default function Footer() {
           </li>
         </Col>
       </div>
+      <Newsletter />
       <div className="border-t border-white/10">
         <div className="container-x flex flex-col items-center justify-between gap-3 py-5 text-xs sm:flex-row">
           <p>© {new Date().getFullYear()} TechChampionStore. All rights reserved.</p>
@@ -79,5 +83,37 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+  )
+}
+
+// Product news and offers by email; the list is managed in Admin > Emails.
+function Newsletter() {
+  const [email, setEmail] = useState('')
+  const [state, setState] = useState({ busy: false, msg: '' })
+  const submit = async (e) => {
+    e.preventDefault()
+    setState({ busy: true, msg: '' })
+    try {
+      await subscribe({ email, source: 'footer' })
+      setEmail('')
+      setState({ busy: false, msg: 'Thanks! You will hear about new products and offers.' })
+    } catch (err) {
+      setState({ busy: false, msg: err.message || 'Could not subscribe, please try again.' })
+    }
+  }
+  return (
+    <div className="border-t border-white/10">
+      <form onSubmit={submit} className="container-x flex flex-col gap-3 py-8 md:flex-row md:flex-wrap md:items-center">
+        <div className="flex-1">
+          <h4 className="font-bold text-white">New components and offers by email</h4>
+          <p className="text-sm">A few emails a month at most. Unsubscribe any time.</p>
+        </div>
+        <div className="flex w-full gap-2 md:w-auto">
+          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Email address" className="input min-w-0 flex-1 border-white/10 bg-white/10 text-white placeholder:text-brand-100/50 md:w-72" />
+          <button disabled={state.busy} className="btn-primary shrink-0">{state.busy ? 'Saving…' : 'Subscribe'}</button>
+        </div>
+        {state.msg && <p className="text-sm text-brand-200 md:basis-full md:text-right">{state.msg}</p>}
+      </form>
+    </div>
   )
 }

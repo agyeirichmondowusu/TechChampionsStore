@@ -4,6 +4,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import BackToTop from './components/BackToTop'
 import Toast from './components/Toast'
+import AnalyticsConsent from './components/AnalyticsConsent'
 import Home from './pages/Home'
 import Products from './pages/Products'
 import ProductDetail from './pages/ProductDetail'
@@ -14,7 +15,7 @@ import RobotDetail from './pages/RobotDetail'
 import MeetChamp from './pages/MeetChamp'
 import { Login, Signup } from './pages/Auth'
 import Admin from './pages/Admin'
-import { About, Contact, Delivery, Faq, Returns, NotFound } from './pages/InfoPages'
+import { About, Contact, Delivery, Faq, Privacy, Returns, Unsubscribe, NotFound } from './pages/InfoPages'
 
 // The slicer pulls in three.js, so it loads only when someone opens it.
 const Slicer = lazy(() => import('./pages/Slicer'))
@@ -56,12 +57,15 @@ export default function App() {
           <Route path="/returns" element={<Returns />} />
           <Route path="/delivery" element={<Delivery />} />
           <Route path="/faq" element={<Faq />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/unsubscribe" element={<Unsubscribe />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
       {!bare && <Footer />}
       <BackToTop />
       <Toast />
+      <AnalyticsConsent />
     </div>
   )
 }

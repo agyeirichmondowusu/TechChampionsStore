@@ -46,6 +46,57 @@ supabase functions deploy champ-chat --no-verify-jwt
 The site calls `<SUPABASE_URL>/functions/v1/champ-chat` automatically; set `VITE_CHAMP_API_URL` or the
 admin "Champ AI endpoint" field to use another endpoint (POST `{messages}` → `{reply}`).
 
+## Visitor analytics (Admin → Visitors)
+
+Counts visitors, new vs. returning, how often each visitor comes back, time of visit, top pages,
+where visitors came from, devices, and approximate location (country, region, city).
+
+- A notice asks visitors first (Admin → Site settings → *Visitor tracking* can switch to "notice only").
+  Visitors who decline, browsers sending Global Privacy Control, admins and `/admin` are never counted.
+  The privacy page is `/privacy`.
+- Each browser gets a random ID in localStorage; a visit (session) ends after 30 minutes without a page view.
+- Location comes from an IP lookup ([ipapi.co](https://ipapi.co)) done once per visit by the `track-visit`
+  edge function. The IP address itself is never stored. No GPS or exact location.
+- Demo mode records only the current browser's visits, with location guessed from its language and time zone.
+
+To go live, run `supabase/migrations/0003_analytics_and_email.sql`, then:
+
+```bash
+supabase functions deploy track-visit --no-verify-jwt
+# optional, only if you outgrow ipapi.co's free ~1,000 lookups a day:
+supabase secrets set IPAPI_KEY=...
+```
+
+To keep 13 months of data, run `select purge_old_visits();` now and then (or schedule it with pg_cron).
+
+## Emails (orders, status updates, product news)
+
+Sent with [Resend](https://resend.com) from the `send-email` edge function:
+
+- **New order:** an alert to the store email (Site settings → Email, or `OWNER_EMAIL`) and a confirmation
+  with items, total and MoMo details to the customer if they typed an email at checkout (the field is optional).
+- **Order status:** changing an order to paid / dispatched / completed / cancelled in Admin → Orders emails the customer.
+- **Product updates:** Admin → Emails sends a message (optionally featuring up to 6 products) to everyone
+  who subscribed from the footer form or the checkout checkbox. Each email has an unsubscribe link (`/unsubscribe`).
+
+Setup:
+
+1. Create a Resend account, add and verify your domain (DNS records), and create an API key.
+   Until the domain is verified Resend only delivers to your own Resend account email.
+2. Run `0003_analytics_and_email.sql` if you have not already, then:
+
+```bash
+supabase secrets set RESEND_API_KEY=re_... \
+  EMAIL_FROM="TechChampionStore <orders@yourdomain.com>" \
+  SITE_URL=https://yourdomain.com
+supabase secrets set OWNER_EMAIL=you@example.com   # optional, defaults to the Site settings email
+supabase functions deploy send-email --no-verify-jwt
+```
+
+3. Admin → Emails → **Send a test email**.
+
+In demo mode nothing is sent; Admin → Emails shows an outbox of what would have gone out.
+
 ## Where things live
 
 | Path | What |

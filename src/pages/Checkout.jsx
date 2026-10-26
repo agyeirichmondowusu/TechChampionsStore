@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, CreditCard, MapPin, ShoppingBag } from 'lucide-react'
 import { FaWhatsapp } from 'react-icons/fa'
 import { useStore } from '../context/StoreContext'
-import { createOrder } from '../lib/api'
+import { createOrder, sendEmail, subscribe } from '../lib/api'
 import { cedi, waNumber } from '../lib/format'
+import { isDemo } from '../lib/supabase'
 
 const orderCode = () => 'TCS-' + Date.now().toString(36).toUpperCase().slice(-6)
 
@@ -35,7 +36,7 @@ export default function Checkout() {
   const accounts = settings.payment?.accounts || []
   const [deliveryId, setDeliveryId] = useState(options[0]?.id)
   const [payIdx, setPayIdx] = useState(0)
-  const [form, setForm] = useState({ name: user?.name || '', phone: '', note: '' })
+  const [form, setForm] = useState({ name: user?.name || '', phone: '', email: user?.email || '', note: '', updates: false })
   const [done, setDone] = useState(null)
   const [errors, setErrors] = useState({})
 
@@ -50,7 +51,7 @@ export default function Checkout() {
       <div className="container-x grid place-items-center py-20 text-center">
         <CheckCircle2 size={64} className="text-brand-600" />
         <h1 className="section-title mt-4">Order {done.code} is ready</h1>
-        <p className="mt-2 max-w-md text-slate-500">WhatsApp should have opened with your order. Press send there, and we will confirm availability and delivery.</p>
+        <p className="mt-2 max-w-md text-slate-500">WhatsApp should have opened with your order. Press send there, and we will confirm availability and delivery.{done.email ? ` A confirmation is on its way to ${done.email}.` : ''}</p>
         <a href={done.url} target="_blank" rel="noreferrer" className="btn mt-6 bg-[#25d366] px-6 py-3 text-white hover:brightness-95">
           <FaWhatsapp size={20} /> Open WhatsApp again
         </a>
@@ -74,6 +75,7 @@ export default function Checkout() {
     const errs = {}
     if (!form.name.trim()) errs.name = 'Please enter your name'
     if (form.phone.replace(/\D/g, '').length < 9) errs.phone = 'Please enter a valid phone number'
+    if (form.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) errs.email = 'Please enter a valid email, or leave it blank'
     setErrors(errs)
     if (Object.keys(errs).length) return
 
@@ -82,12 +84,17 @@ export default function Checkout() {
     const url = `${waBase}?text=${encodeURIComponent(text)}`
     // Open WhatsApp first (inside the click) so popup blockers allow it.
     window.open(url, '_blank', 'noopener')
+    const email = form.email.trim().toLowerCase() || null
+    // Logs the order, then emails the confirmation (if an email was given) and the owner alert.
     createOrder({
-      order_code: code, customer_name: form.name, customer_phone: form.phone, customer_note: form.note,
+      order_code: code, customer_name: form.name, customer_phone: form.phone, customer_email: email, customer_note: form.note,
       delivery_option: delivery.label, delivery_fee: delivery.fee, items: summary, subtotal: cartTotal, total,
-    }).catch((err) => console.warn('Order log failed', err))
+    })
+      .then(() => sendEmail({ type: 'order_created', order_code: code, to: email }))
+      .catch((err) => console.warn('Order log or email failed', err))
+    if (email && form.updates) subscribe({ email, name: form.name, source: 'checkout' }).catch(() => {})
     clearCart()
-    setDone({ code, url })
+    setDone({ code, url, email: isDemo ? null : email })
   }
 
   const field = (k) => ({ value: form[k], onChange: (e) => setForm({ ...form, [k]: e.target.value }) })
@@ -109,6 +116,17 @@ export default function Checkout() {
                 <label className="label" htmlFor="phone">Phone / WhatsApp</label>
                 <input id="phone" className="input" placeholder="024 000 0000" inputMode="tel" {...field('phone')} />
                 {errors.phone && <p className="mt-1 text-xs font-semibold text-brand-700">{errors.phone}</p>}
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label" htmlFor="email">Email (optional, for your order confirmation)</label>
+                <input id="email" type="email" className="input" placeholder="you@example.com" {...field('email')} />
+                {errors.email && <p className="mt-1 text-xs font-semibold text-brand-700">{errors.email}</p>}
+                {form.email.trim() && (
+                  <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                    <input type="checkbox" checked={form.updates} onChange={(e) => setForm({ ...form, updates: e.target.checked })} className="h-4 w-4 accent-brand-600" />
+                    Also email me about new products and offers
+                  </label>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="label" htmlFor="note">Notes (hostel, landmark, preferred time)</label>

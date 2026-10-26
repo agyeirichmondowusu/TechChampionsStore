@@ -21,7 +21,10 @@ const Slicer = lazy(() => import('./pages/Slicer'))
 
 export default function App() {
   const { pathname } = useLocation()
-  useEffect(() => window.scrollTo(0, 0), [pathname])
+  // Braces matter: newer browsers return a Promise from scrollTo, and React treats a returned value as the cleanup function.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
   const bare = pathname === '/meet-champ'
 
   return (

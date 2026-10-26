@@ -9,7 +9,12 @@ npm install
 cp .env.example .env      # leave blank for demo mode
 npm run dev               # http://localhost:5173
 npm run build             # production build in dist/
+npm run preview           # serve dist/ at http://localhost:4173
 ```
+
+Needs Node 20 or newer. Don't open `dist/index.html` by double-clicking it: browsers block the scripts on
+`file://` and the page stays blank. Serve it with `npm run preview` or a host (Netlify and Vercel rewrites
+for page links are in `public/_redirects` and `vercel.json`).
 
 Without Supabase keys the site runs in **demo mode**: the 46 seed products load from
 `src/data/seedProducts.json` and admin edits, uploads, accounts and orders are saved in the browser.

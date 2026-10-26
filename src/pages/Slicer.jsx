@@ -11,7 +11,7 @@ import { FEATURES, formatTime } from '../lib/slicer/gcode'
 import { useStore } from '../context/StoreContext'
 import { cedi, waNumber } from '../lib/format'
 
-const SETTINGS_KEY = 'tcs_slicer_settings_v1'
+const SETTINGS_KEY = 'tcs_slicer_settings_v2'
 const loadSettings = () => {
   try {
     return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) }
@@ -523,7 +523,7 @@ export default function Slicer() {
 
           <Panel icon={Printer} title="Printer and material">
             <div className="space-y-3">
-              <Select label="Printer" value={ui.printer} onChange={set('printer')} options={PRINTERS.map((p) => [p.id, `${p.name} (${p.bed.join('×')})`])} />
+              <Select label="Printer" value={ui.printer} onChange={(v) => setUi((u) => ({ ...u, printer: v, printSpeed: null, firstLayerSpeed: null, retractLength: null }))} options={PRINTERS.map((p) => [p.id, `${p.name} (${p.bed.join('×')})`])} />
               <div className="grid grid-cols-2 gap-3">
                 <Select label="Material" value={ui.material} onChange={set('material')} options={MATERIALS.map((m) => [m.id, m.name])} />
                 <Select label="Nozzle" value={String(ui.nozzle)} onChange={(v) => set('nozzle')(+v)} options={[0.2, 0.4, 0.6, 0.8].map((n) => [String(n), `${n} mm`])} />
@@ -557,7 +557,7 @@ export default function Slicer() {
                   <span className="text-xs font-bold text-brand-700">{Math.round(ui.infillDensity * 100)}%</span>
                 </div>
                 <input type="range" min={0} max={100} step={5} value={Math.round(ui.infillDensity * 100)} onChange={(e) => set('infillDensity')(+e.target.value / 100)} className="w-full accent-brand-600" />
-                <div className="mt-2 grid grid-cols-4 gap-1.5">
+                <div className="mt-2 grid grid-cols-5 gap-1">
                   {PATTERNS.map((p) => (
                     <button key={p.id} onClick={() => set('infillPattern')(p.id)} className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold ring-1 transition ${ui.infillPattern === p.id ? 'bg-navy-900 text-white ring-navy-900' : 'bg-white text-navy-800 ring-slate-200 hover:ring-brand-300'}`}>
                       {p.name}
@@ -569,6 +569,10 @@ export default function Slicer() {
                 <NumberField label="Walls" value={ui.walls} onChange={set('walls')} min={1} max={10} />
                 <NumberField label="Top layers" value={ui.topLayers} onChange={set('topLayers')} min={0} max={20} />
                 <NumberField label="Bottom" value={ui.bottomLayers} onChange={set('bottomLayers')} min={0} max={20} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberField label="Print speed" value={ui.printSpeed ?? s.printer.print} onChange={set('printSpeed')} min={5} max={600} suffix="mm/s" />
+                <NumberField label="First layer speed" value={ui.firstLayerSpeed ?? s.printer.first} onChange={set('firstLayerSpeed')} min={5} max={300} suffix="mm/s" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Select label="Supports" value={ui.supports} onChange={set('supports')} options={[['none', 'Off'], ['buildplate', 'From build plate'], ['everywhere', 'Everywhere']]} />
@@ -584,7 +588,7 @@ export default function Slicer() {
                   <NumberField label="First layer" value={ui.firstLayerHeight} onChange={set('firstLayerHeight')} min={0.08} max={ui.nozzle * 0.9} step={0.02} suffix="mm" />
                   <NumberField label="Nozzle temp" value={ui.nozzleTemp ?? s.material.nozzle} onChange={set('nozzleTemp')} min={150} max={320} suffix="°C" />
                   <NumberField label="Bed temp" value={ui.bedTemp ?? s.material.bed} onChange={set('bedTemp')} min={0} max={120} suffix="°C" />
-                  <NumberField label="Speed" value={Math.round(ui.speedFactor * 100)} onChange={(v) => set('speedFactor')(v / 100)} min={20} max={200} step={10} suffix="%" />
+                  <NumberField label="Min layer time" value={ui.minLayerTime} onChange={set('minLayerTime')} min={0} max={60} suffix="s" />
                   <NumberField label="Retraction" value={ui.retractLength ?? s.printer.retract.length} onChange={set('retractLength')} min={0} max={10} step={0.1} suffix="mm" />
                   <NumberField label="Support angle" value={ui.supportAngle} onChange={set('supportAngle')} min={20} max={80} suffix="°" />
                   <NumberField label="Brim width" value={ui.brimWidth} onChange={set('brimWidth')} min={1} max={20} suffix="mm" />
@@ -615,7 +619,7 @@ export default function Slicer() {
                 <Stat icon={Wallet} label="Print cost" value={cedi(st.grams * pricePerGram)} sub={`${cedi(pricePerGram)} per gram`} />
                 <Stat icon={Ruler} label="Layers" value={st.layers.toLocaleString()} sub={`${st.height.toFixed(2)} mm tall`} />
               </div>
-              <p className="mt-2 text-[11px] text-slate-400">Sliced in {(st.sliceMs / 1000).toFixed(1)} s. Time is an estimate that includes about 2 minutes for heating.</p>
+              <p className="mt-2 text-[11px] text-slate-400">Sliced in {(st.sliceMs / 1000).toFixed(1)} s. Time is estimated with the same motion model as Cura and doesn't include heating up.</p>
               <div className="mt-4 space-y-2">
                 <button onClick={download} className="btn-dark w-full">
                   <Download size={16} /> Download G-code
@@ -699,7 +703,8 @@ function NumberBox({ value, onChange, min, max, step = 1, suffix }) {
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === 'Enter' && commit()}
-        className={`input py-2 ${suffix ? 'pr-9' : ''} w-full min-w-[84px] tabular-nums`}
+        style={suffix ? { paddingRight: 14 + suffix.length * 7 } : undefined}
+        className="input w-full min-w-[84px] py-2 tabular-nums"
       />
       {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{suffix}</span>}
     </div>

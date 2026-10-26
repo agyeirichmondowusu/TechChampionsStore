@@ -1,5 +1,5 @@
 // Writes G-code from sliced layers and builds the toolpath preview buffers in the same pass.
-import { lineSpacing } from './slicer.js'
+import { estimateTime } from './timing.js'
 
 export const FEATURES = {
   outer: { label: 'Outer wall', color: [0.97, 0.36, 0.36] },
@@ -17,14 +17,11 @@ const CURA_TYPE = { outer: 'WALL-OUTER', inner: 'WALL-INNER', top: 'SKIN', solid
 const f3 = (n) => (Math.round(n * 1000) / 1000).toString()
 const f5 = (n) => (Math.round(n * 100000) / 100000).toString()
 
-/** Time for a straight move of length d at speed v with acceleration a (trapezoid / triangle profile). */
-const moveTime = (d, v, a) => (d <= 0 ? 0 : d < (v * v) / a ? 2 * Math.sqrt(d / a) : d / v + v / a)
-
 export function writeGcode(sliced, s, info = {}) {
   const { layers } = sliced
   const { printer, material, speeds } = s
   const filArea = Math.PI * (s.filamentDiameter / 2) ** 2
-  const a = printer.accel
+  const limits = { accel: printer.accel, jerk: printer.jerk }
   const lines = []
   const g = (l) => lines.push(l)
 
@@ -55,14 +52,13 @@ export function writeGcode(sliced, s, info = {}) {
     g('M107')
     g('G92 E0')
     g('G1 Z2 F3000')
-    // Purge line along the left edge of the bed.
+    // Purge line along the left edge of the bed (not counted in the estimates, as in Cura).
     g('G1 X5 Y20 Z0.28 F5000')
     g('G1 X5 Y120 E10 F1500')
     g('G1 X5.4 Y120 F5000')
     g('G1 X5.4 Y20 E10 F1500')
     g(`G1 E-${s.retract.length} F${s.retract.speed * 60}`)
     g('G1 Z2 F3000')
-    filament += 20
     retracted = true
     x = 5.4
     y = 20
@@ -72,62 +68,91 @@ export function writeGcode(sliced, s, info = {}) {
   for (let li = 0; li < layers.length; li++) {
     const L = layers[li]
     const w = s.lineWidth
-    const ePerMm = (L.h * lineSpacing(w, L.h)) / filArea
+    const ePerMm = (w * L.h) / filArea
+    // First layers print slowly, then speed ramps up over `slowdownLayers` (Cura's "Number of Slower Layers").
+    const ramp = Math.min(1, li / Math.max(1, s.slowdownLayers))
+    const speedOf = (type) => (type === 'skirt' && li === 0 ? speeds.skirt : speeds.first + (speeds[type] - speeds.first) * ramp)
+
+    // Plan the layer as a list of moves first, so it can be timed and slowed down if it is too quick to cool.
+    const moves = []
+    let cx = x, cy = y
+    let ret = retracted
+    for (const p of L.paths) {
+      const pts = p.pts
+      const n = pts.length / 2
+      const dist = Math.hypot(pts[0] - cx, pts[1] - cy)
+      if (dist > 0.01) {
+        if (dist > 1.5 && !ret) {
+          moves.push({ kind: 'retract', dx: 0, dy: 0, de: -s.retract.length, v: s.retract.speed })
+          ret = true
+        }
+        moves.push({ kind: 'travel', x: pts[0], y: pts[1], dx: pts[0] - cx, dy: pts[1] - cy, de: 0, v: li ? speeds.travel : Math.min(speeds.travel, speeds.first * 5) })
+        cx = pts[0]
+        cy = pts[1]
+      }
+      if (ret) {
+        moves.push({ kind: 'prime', dx: 0, dy: 0, de: s.retract.length, v: s.retract.speed })
+        ret = false
+      }
+      const v = speedOf(p.type)
+      const tid = TYPE_IDS.indexOf(p.type)
+      const visit = (nx, ny) => {
+        const d = Math.hypot(nx - cx, ny - cy)
+        if (d < 0.005) return
+        moves.push({ kind: 'extrude', x: nx, y: ny, dx: nx - cx, dy: ny - cy, de: d * ePerMm, v, tid, type: p.type })
+        cx = nx
+        cy = ny
+      }
+      for (let k = 1; k < n; k++) visit(pts[k * 2], pts[k * 2 + 1])
+      if (p.closed) visit(pts[0], pts[1])
+    }
+
+    let layerTime = estimateTime(moves, limits)
+    if (layerTime < s.minLayerTime && layerTime > 0) {
+      // Minimum layer time: stretch the extrusion moves (not below the minimum speed) so the layer can cool.
+      const ex = moves.filter((m) => m.kind === 'extrude')
+      const exTime = estimateTime(ex, limits)
+      const k = exTime / (exTime + s.minLayerTime - layerTime)
+      for (const m of ex) m.v = Math.max(Math.min(s.minSpeed, m.v), m.v * k)
+      layerTime = estimateTime(moves, limits)
+    }
+    time += layerTime + Math.abs(L.z - z) / 10
+
     g(`;LAYER_CHANGE`)
     g(`;Z:${f3(L.z)}`)
     g(`;LAYER:${li}`)
     g(`M73 P${Math.round((li / layers.length) * 100)}`)
     if (li === 1 && fanOn) g(`M106 S${fanOn}`)
     g(`G1 Z${f3(L.z)} F${li ? 1200 : 600}`)
-    time += Math.abs(L.z - z) / 10
     z = L.z
 
     let curType = null
-    for (const p of L.paths) {
-      const pts = p.pts
-      const n = pts.length / 2
-      // Travel to the start of the path, retracting when the hop is long enough to ooze.
-      const dx = pts[0] - x, dy = pts[1] - y
-      const dist = Math.hypot(dx, dy)
-      if (dist > 0.01) {
-        if (dist > 1.5 && !retracted) {
-          g(`G1 E-${s.retract.length} F${s.retract.speed * 60}`)
-          time += s.retract.length / s.retract.speed
-          retracted = true
+    let lastF = 0
+    for (const m of moves) {
+      if (m.kind === 'retract' || m.kind === 'prime') {
+        g(`G1 E${m.kind === 'retract' ? '-' : ''}${s.retract.length} F${s.retract.speed * 60}`)
+        retracted = m.kind === 'retract'
+        lastF = 0
+        continue
+      }
+      if (m.kind === 'travel') {
+        g(`G0 X${f3(m.x)} Y${f3(m.y)} F${Math.round(m.v * 60)}`)
+        trv.push(x, y, z, m.x, m.y, z)
+        lastF = 0
+      } else {
+        if (curType !== m.type) {
+          g(`;TYPE:${CURA_TYPE[m.type]}`)
+          curType = m.type
         }
-        g(`G0 X${f3(pts[0])} Y${f3(pts[1])} F${speeds.travel * 60}`)
-        trv.push(x, y, z, pts[0], pts[1], z)
-        time += moveTime(dist, speeds.travel, a)
-        x = pts[0]
-        y = pts[1]
+        const f = Math.round(m.v * 60)
+        g(`G1 X${f3(m.x)} Y${f3(m.y)} E${f5(m.de)}${f !== lastF ? ` F${f}` : ''}`)
+        lastF = f
+        seg.push(x, y, z, m.x, m.y, z)
+        segType.push(m.tid)
+        filament += m.de
       }
-      if (retracted) {
-        g(`G1 E${s.retract.length} F${s.retract.speed * 60}`)
-        time += s.retract.length / s.retract.speed
-        retracted = false
-      }
-      if (curType !== p.type) {
-        g(`;TYPE:${CURA_TYPE[p.type]}`)
-        curType = p.type
-      }
-      const v = li === 0 ? Math.min(speeds.first, speeds[p.type]) : speeds[p.type]
-      let first = true
-      const tid = TYPE_IDS.indexOf(p.type)
-      const visit = (nx, ny) => {
-        const d = Math.hypot(nx - x, ny - y)
-        if (d < 0.005) return
-        const e = d * ePerMm
-        g(`G1 X${f3(nx)} Y${f3(ny)} E${f5(e)}${first ? ` F${Math.round(v * 60)}` : ''}`)
-        first = false
-        seg.push(x, y, z, nx, ny, z)
-        segType.push(tid)
-        filament += e
-        time += moveTime(d, v, a)
-        x = nx
-        y = ny
-      }
-      for (let k = 1; k < n; k++) visit(pts[k * 2], pts[k * 2 + 1])
-      if (p.closed) visit(pts[0], pts[1])
+      x = m.x
+      y = m.y
     }
     layerSeg.push(segType.length)
     layerTrv.push(trv.length / 6)
@@ -146,7 +171,6 @@ export function writeGcode(sliced, s, info = {}) {
   }
   g('M73 P100')
 
-  time += 120 // heating, homing and purge
   const grams = (filament * filArea * material.density) / 1000
   const stats = {
     time,

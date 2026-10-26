@@ -50,6 +50,7 @@ export default function Footer() {
           <L to="/products">All products</L>
           {CATEGORIES.map((c) => <L key={c.id} to={`/products?category=${c.id}`}>{c.name}</L>)}
           <L to="/robots">Robot kits</L>
+          <L to="/slicer">3D slicer (STL to G-code)</L>
         </Col>
         <Col title="Help">
           <L to="/returns">Return policy ({settings.return_policy_days} days)</L>

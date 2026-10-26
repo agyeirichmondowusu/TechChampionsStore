@@ -10,6 +10,7 @@ const NAV = [
   { to: '/', label: 'Home', end: true },
   { to: '/products', label: 'Our Products' },
   { to: '/robots', label: 'Robots' },
+  { to: '/slicer', label: '3D Slicer' },
   { to: '/meet-champ', label: 'Meet Champ' },
 ]
 

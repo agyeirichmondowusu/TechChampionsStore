@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -16,9 +16,15 @@ import { Login, Signup } from './pages/Auth'
 import Admin from './pages/Admin'
 import { About, Contact, Delivery, Faq, Returns, NotFound } from './pages/InfoPages'
 
+// The slicer pulls in three.js, so it loads only when someone opens it.
+const Slicer = lazy(() => import('./pages/Slicer'))
+
 export default function App() {
   const { pathname } = useLocation()
-  useEffect(() => window.scrollTo(0, 0), [pathname])
+  // Braces matter: newer browsers return a Promise from scrollTo, and React treats a returned value as the cleanup function.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
   const bare = pathname === '/meet-champ'
 
   return (
@@ -34,6 +40,14 @@ export default function App() {
           <Route path="/robots" element={<Robots />} />
           <Route path="/robots/:id" element={<RobotDetail />} />
           <Route path="/meet-champ" element={<MeetChamp />} />
+          <Route
+            path="/slicer"
+            element={
+              <Suspense fallback={<div className="container-x py-24 text-center text-slate-500">Loading the slicer…</div>}>
+                <Slicer />
+              </Suspense>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/admin" element={<Admin />} />

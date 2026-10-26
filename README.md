@@ -65,3 +65,12 @@ Admin → **Excel import** lets you update the live catalogue from a spreadsheet
 Rows match existing products by **Slug**, then by **Name** (case-insensitive). Empty cells keep the current value, so a sheet with just `Name` and `Price` only changes prices. New products need Name, Category and Price.
 
 Columns: Slug, Name, Category, Type, Price, Old Price, Remaining, Short Description, Description, Image, YouTube Link, Specs (`Voltage: 5V; Pins: 20`), Visible (Yes/No). The Image column can be a web link, or a file name like `esp32.jpg` that you select in the preview; it is uploaded to that category's folder in Supabase Storage.
+
+## 3D slicer (`/slicer`)
+
+Visitors upload an STL (binary or ASCII), orient and scale it on the build plate, and slice it to G-code without anything leaving their browser. The slicer runs in a Web Worker:
+
+- `src/lib/slicer/stl.js` parses STL and welds vertices; `contours.js` cuts each layer and stitches loops along shared mesh edges.
+- `slicer.js` builds walls (offset with [Clipper](https://www.npmjs.com/package/clipper-lib)), top/bottom skin, infill (grid, lines, triangles, concentric), supports and skirt/brim.
+- `gcode.js` writes Marlin/Klipper G-code and estimates time, filament weight and cost; `profiles.js` holds printer and material presets (filament prices link to the store's PLA/PETG products).
+- `src/components/slicer/scene.js` renders the model and the layer-by-layer toolpath preview with three.js.

@@ -62,9 +62,7 @@ export class BuzzerAudio {
   }
 }
 
-// What a part sees on its pin: LED brightness, servo angle, buzzer pitch.
-export const brightness = (pin) => (!pin || pin.m !== 'out' ? 0 : pin.d != null ? pin.d : pin.v)
-
+// Servo angle from a pin: set directly by a servo library, or measured from the pulse width.
 export function servoAngle(pin, board) {
   if (!pin) return null
   if (pin.a != null) return pin.a
@@ -74,11 +72,4 @@ export function servoAngle(pin, board) {
     if (us > 300 && us < 3000) return Math.min(180, Math.max(0, ((us - lo) / (hi - lo)) * 180))
   }
   return null
-}
-
-export function buzzerFreq(pin) {
-  if (!pin || pin.m !== 'out') return 0
-  if (pin.f) return pin.f
-  if (pin.d != null && pin.pf > 20) return pin.pf
-  return 0
 }

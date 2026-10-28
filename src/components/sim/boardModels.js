@@ -72,6 +72,12 @@ class Builder {
     this.silk = '#f4f4ef'
   }
 
+  anchor(id, at) {
+    let key = id
+    for (let n = 2; this.anchors[key]; n++) key = `${id}#${n}`
+    this.anchors[key] = at
+  }
+
   // board coordinates (x right, y up the board image, z above the PCB) -> local 3D
   pos(x, y, z = 0) { return new THREE.Vector3(x - this.W / 2, T + z, this.D / 2 - y) }
   cx(x) { return x * PX }
@@ -257,7 +263,7 @@ class Builder {
       const x = along ? x0 + i * PITCH : x0
       const y = along ? y0 : y0 - i * PITCH
       this.tiny('fhole', () => new THREE.BoxGeometry(1.0, 0.05, 1.0), this.m.hole, x, y, h + 0.01)
-      if (id) this.anchors[id] = this.pos(x, y, h + 0.4)
+      if (id) this.anchor(id, this.pos(x, y, h + 0.4))
       if (label && id) this.text(id.replace(/^D/, ''), along ? x : x + labelSide * 2.4, along ? y + labelSide * 2.3 : y, 1.15, { rot: along ? 90 : 0, align: along ? (labelSide > 0 ? 'left' : 'right') : 'center' })
     })
   }
@@ -274,12 +280,12 @@ class Builder {
         const id = ids?.[r]?.[c]
         if (up) {
           this.tiny('pinUp', () => new THREE.BoxGeometry(0.64, 8.4, 0.64), this.m.gold, x, y, 4.2 - 2.5)
-          if (id) this.anchors[id] = this.pos(x, y, 8.6)
+          if (id) this.anchor(id, this.pos(x, y, 8.6))
         } else {
           this.ringPad(x, y, 0.9, 0.45)
           this.tiny('solder', () => new THREE.SphereGeometry(0.62, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), this.m.tin, x, y, 0)
           this.tiny('pinDown', () => new THREE.BoxGeometry(0.64, 8.4, 0.64), this.m.gold, x, y, -T - 4.2)
-          if (id) this.anchors[id] = this.pos(x, y, 0.9)
+          if (id) this.anchor(id, this.pos(x, y, 0.9))
         }
       }
     }
@@ -601,7 +607,7 @@ function pico() {
     b.fillRect(px - 0.8, py - 1.1, 1.6, 2.2, '#dcb766')
     b.circle(px, py, 0.5, '#101010')
     b.tiny('castel', () => new THREE.BoxGeometry(1.6, 0.04, 2.2), b.m.gold, px, py, 0.01)
-    if (id && !id.startsWith('GND')) b.anchors[id] = b.pos(px, py, 0.6)
+    if (id) b.anchor(id, b.pos(px, py, 0.6))
     b.text(id.replace('ADC_VREF', 'VREF').replace('3V3_EN', 'EN'), px, labelY, 0.75, { rot: 90, align, bold: false })
   }
   side1.forEach((id, i) => pad(x(i + 1), 19.9, id, 18.0, 'right'))
@@ -634,12 +640,11 @@ function rpi5() {
   // 40-pin header: odd pins on the inner row
   const phys = { 1: '3V3', 2: '5V', 4: '5V', 6: 'GND', 9: 'GND', 14: 'GND', 17: '3V3', 20: 'GND', 25: 'GND', 30: 'GND', 34: 'GND', 39: 'GND' }
   const bcm = { 3: 2, 5: 3, 7: 4, 8: 14, 10: 15, 11: 17, 12: 18, 13: 27, 15: 22, 16: 23, 18: 24, 19: 10, 21: 9, 22: 25, 23: 11, 24: 8, 26: 7, 27: 0, 28: 1, 29: 5, 31: 6, 32: 12, 33: 13, 35: 19, 36: 16, 37: 26, 38: 20, 40: 21 }
-  const idFor = (p) => (bcm[p] != null ? `GPIO${bcm[p]}` : null)
+  const idFor = (p) => (bcm[p] != null ? `GPIO${bcm[p]}` : phys[p] || null)
   const inner = []
   const outer = []
   for (let k = 0; k < 20; k++) { inner.push(idFor(2 * k + 1)); outer.push(idFor(2 * k + 2)) }
   b.maleHeader(20, 2, 8.0, 51.23, [inner, outer], { up: true, rowStep: 2.54 })
-  void phys
   // SoC under a heat spreader, RAM, RP1 I/O controller, PMIC
   b.box(17, 17, 1.0, new THREE.MeshStandardMaterial({ color: '#2b3a2f', roughness: 0.6 }), 29, 32)
   b.shield(14, 14, 1.0, 29, 32, ['BROADCOM', 'BCM2712ZPKFSB06C0T'])

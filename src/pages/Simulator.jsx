@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Download, FileUp, Loader2, Play, RotateCcw, Send, Square, Trash2, Usb, Volume2, VolumeX } from 'lucide-react'
+import { AlertTriangle, Box, Cable, Download, FileUp, Loader2, Play, RotateCcw, Send, Square, Trash2, Usb, Volume2, VolumeX } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { cpp } from '@codemirror/lang-cpp'
 import { python } from '@codemirror/lang-python'
@@ -8,27 +8,37 @@ import { Decoration, EditorView } from '@codemirror/view'
 import { StateEffect, StateField } from '@codemirror/state'
 import BoardPicker from '../components/sim/BoardPicker'
 import Board3D from '../components/sim/Board3D'
-import PartsPanel from '../components/sim/PartsPanel'
-import { boardById, LANGUAGES, pinById } from '../lib/sim/boards'
+import Workbench from '../components/sim/Workbench'
+import CircuitPanel from '../components/sim/CircuitPanel'
+import { boardTopView } from '../components/sim/boardScene'
+import { boardById, LANGUAGES } from '../lib/sim/boards'
 import { buildExample, examplesFor } from '../lib/sim/examples'
-import { PARTS, partVoltage } from '../lib/sim/parts'
-import { BuzzerAudio, buzzerFreq, startSimulation } from '../lib/sim/controller'
+import { autoCircuit } from '../lib/sim/autoCircuit'
+import { solveCircuit } from '../lib/sim/circuit'
+import { CIRCUIT_PARTS, newCircuitId } from '../lib/sim/circuitParts'
+import { BuzzerAudio, startSimulation } from '../lib/sim/controller'
 import { canUseSerial, flashAvr, uploadMicroPython } from '../lib/sim/upload'
 import { prepareSketch } from '../lib/sim/sketch'
 
-const STORE_KEY = 'tcs_simulator_v1'
+const STORE_KEY = 'tcs_simulator_v2'
 const SERIAL_LIMIT = 20000
 
 const loadSaved = () => {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {} } catch { return {} }
 }
 
-const withIds = (parts) => parts.map((p, i) => ({ id: `p${i}${Math.random().toString(36).slice(2, 7)}`, props: {}, ...p, props: { ...(p.props || {}) } }))
+const topView = (board) => {
+  try { return boardTopView(board.id) } catch { return null } // no WebGL
+}
 
+// An example's code plus its circuit, already wired up on a breadboard.
 function freshProject(board, language, exampleId) {
   const ex = buildExample(board, language, exampleId)
-  return { language, exampleId: ex.id, code: ex.code, parts: withIds(ex.parts) }
+  const top = topView(board)
+  return { language, exampleId: ex.id, code: ex.code, circuit: top ? autoCircuit(board, ex.parts, top) : { parts: [], wires: [] }, circuitEdited: false }
 }
+
+const toInputs = (volts) => Object.fromEntries(Object.entries(volts).map(([num, v]) => [num, { volts: Math.round(v * 1000) / 1000 }]))
 
 // ---------- error line highlight in the editor ----------
 const setErrorLine = StateEffect.define()
@@ -82,8 +92,9 @@ export default function Simulator() {
     return boardById(q || saved.current.boardId || 'uno').id
   })
   const board = useMemo(() => boardById(boardId), [boardId])
-  const [project, setProject] = useState(() => saved.current.projects?.[boardId] || freshProject(boardById(boardId), boardById(boardId).languages[0]))
-  const { language, code, parts } = project
+  const [project, setProject] = useState(() => (saved.current.projects?.[boardId]?.circuit ? saved.current.projects[boardId] : freshProject(boardById(boardId), boardById(boardId).languages[0])))
+  const { language, code, circuit } = project
+  const top = useMemo(() => topView(board), [board])
 
   const [status, setStatus] = useState('idle') // idle | compiling | running | uploading
   const [pins, setPins] = useState({})
@@ -95,6 +106,11 @@ export default function Simulator() {
   const [ranCode, setRanCode] = useState(null)
   const [muted, setMuted] = useState(false)
   const [nanoOld, setNanoOld] = useState(false)
+  const [selected, setSelected] = useState(null)
+  const [wireColor, setWireColor] = useState('#16a34a')
+  const [burned, setBurned] = useState(() => new Set())
+  const [tab, setTab] = useState('circuit')
+  const workbench = useRef(null)
 
   const sim = useRef(null)
   const audio = useRef(null)
@@ -126,18 +142,12 @@ export default function Simulator() {
     }
   }, [])
 
-  // Inputs the parts put on pins: buttons and switches press, sensors set a voltage.
-  const inputs = useMemo(() => {
-    const out = {}
-    for (const part of parts) {
-      const pin = pinById(board, part.pins.pin)
-      if (!pin) continue
-      if (part.type === 'button') out[pin.num] = { pressed: Boolean(part.props.pressed) }
-      else if (part.type === 'switch') out[pin.num] = { pressed: Boolean(part.props.on) }
-      else if (['pot', 'ldr', 'temp'].includes(part.type)) out[pin.num] = { volts: partVoltage(part, board.vref) }
-    }
-    return out
-  }, [parts, board])
+  // The circuit decides what every input pin sees; it is re-solved whenever an output changes.
+  const solved = useMemo(() => solveCircuit({ board, circuit, pins, running, burned }), [board, circuit, pins, running, burned])
+  useEffect(() => {
+    if (solved.burned.length) setBurned((b) => new Set([...b, ...solved.burned]))
+  }, [solved])
+  const inputs = useMemo(() => toInputs(solved.inputs), [solved])
 
   useEffect(() => {
     if (!sim.current) return
@@ -151,28 +161,14 @@ export default function Simulator() {
     sentInputs.current = inputs
   }, [inputs])
 
-  const wired = useMemo(() => {
-    const set = new Set()
-    const labels = {}
-    for (const part of parts) {
-      for (const id of Object.values(part.pins)) {
-        const pin = pinById(board, id)
-        if (pin) { set.add(pin.num); labels[pin.num] = PARTS[part.type].name }
-      }
-    }
-    return { set, labels }
-  }, [parts, board])
-
-  // Buzzers follow their pin's tone.
+  // Buzzers play whatever tone reaches them through the circuit.
   useEffect(() => {
     if (!audio.current) return
     audio.current.muted = muted
-    for (const part of parts) {
-      if (part.type !== 'buzzer') continue
-      const pin = pinById(board, part.pins.pin)
-      audio.current.set(part.id, running && pin ? buzzerFreq(pins[pin.num]) : 0)
+    for (const part of circuit.parts) {
+      if (part.type === 'buzzer') audio.current.set(part.id, running ? solved.parts[part.id]?.freq || 0 : 0)
     }
-  }, [pins, parts, board, running, muted])
+  }, [solved, circuit, running, muted])
 
   const stop = useCallback(() => {
     sim.current?.stop()
@@ -201,6 +197,7 @@ export default function Simulator() {
     showError(null)
     setPins({})
     setSerial('')
+    setBurned(new Set())
     audio.current ||= new BuzzerAudio()
     audio.current.unlock()
     let hex = null
@@ -220,12 +217,13 @@ export default function Simulator() {
     }
     // Pin updates arrive up to 60 times a second; apply at most one per frame.
     pending.current = { pins: null, raf: 0 }
+    const startInputs = toInputs(solveCircuit({ board, circuit, pins: {}, running: true }).inputs)
     const handle = startSimulation({
       board,
       language,
       code,
       hex,
-      inputs,
+      inputs: startInputs,
       onPins: (next) => {
         const p = pending.current
         if (!p) return
@@ -242,7 +240,7 @@ export default function Simulator() {
       },
     })
     sim.current = handle
-    sentInputs.current = inputs
+    sentInputs.current = startInputs
     setRanCode(code)
     setStatus('running')
   }
@@ -262,7 +260,8 @@ export default function Simulator() {
     const data = loadSaved()
     const savedProject = data.projects?.[id]
     setBoardId(id)
-    setProject(savedProject && next.languages.includes(savedProject.language) ? savedProject : freshProject(next, next.languages[0]))
+    setSelected(null)
+    setProject(savedProject?.circuit && next.languages.includes(savedProject.language) ? savedProject : freshProject(next, next.languages[0]))
     const url = new URL(window.location.href)
     url.searchParams.set('board', id)
     window.history.replaceState(null, '', url)
@@ -270,19 +269,30 @@ export default function Simulator() {
 
   const isEdited = () => {
     const ex = buildExample(board, language, project.exampleId)
-    return ex.code.trim() !== code.trim()
+    return ex.code.trim() !== code.trim() || project.circuitEdited
   }
 
   const loadExample = (exampleId, lang = language) => {
-    if (isEdited() && !window.confirm('Replace your code with this example? Your changes on this board will be lost.')) return
+    if (isEdited() && !window.confirm('Replace your code and circuit with this example? Your changes on this board will be lost.')) return
     stop()
     showError(null)
+    setSelected(null)
     setProject(freshProject(board, lang, exampleId))
   }
 
   const setCode = useCallback((value) => setProject((p) => ({ ...p, code: value })), [])
-  const setParts = (next) => setProject((p) => ({ ...p, parts: next }))
-  const pressPart = (part, down) => setProject((p) => ({ ...p, parts: p.parts.map((x) => (x.id === part.id ? { ...x, props: { ...x.props, pressed: down } } : x)) }))
+  const setCircuit = useCallback((next) => setProject((p) => ({ ...p, circuit: next, circuitEdited: true })), [])
+  const pressPart = useCallback((id, down) => setProject((p) => ({ ...p, circuit: { ...p.circuit, parts: p.circuit.parts.map((x) => (x.id === id ? { ...x, props: { ...x.props, pressed: down } } : x)) } })), [])
+  const addPart = (type) => {
+    const def = CIRCUIT_PARTS[type]
+    const [cx, cy] = workbench.current?.center() || [0, 0]
+    const [x0, y0, x1, y1] = def.box
+    const id = newCircuitId(type === 'breadboard' ? 'bb' : 'p')
+    const snap = (v) => Math.round(v / 1.27) * 1.27
+    setCircuit({ ...circuit, parts: [...circuit.parts, { id, type, x: snap(cx - (x0 + x1) / 2), y: snap(cy - (y0 + y1) / 2), rot: 0, props: { ...(def.props || {}) } }] })
+    setSelected({ kind: 'part', id })
+    setTab('circuit')
+  }
 
   const sendSerial = (e) => {
     e.preventDefault()
@@ -356,7 +366,7 @@ export default function Simulator() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-200">TechChampion Lab</p>
               <h1 className="font-display text-2xl font-black sm:text-3xl">Board simulator</h1>
-              <p className="mt-1 max-w-2xl text-sm text-brand-100/80">Pick a board, wire up components and run your code right in the browser. Then upload it to the real thing over USB.</p>
+              <p className="mt-1 max-w-2xl text-sm text-brand-100/80">Pick a board, build a real circuit on the breadboard and run your code right in the browser. Then upload it to the real thing over USB.</p>
             </div>
           </div>
           <div className="mt-5 flex flex-wrap items-end gap-3">
@@ -399,11 +409,27 @@ export default function Simulator() {
 
       <div className="container-x mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
         <div className="space-y-5">
-          <div className="card h-[22rem] overflow-hidden p-0 sm:h-[26rem]">
-            <Board3D board={board} pins={pins} wired={wired.set} labels={wired.labels} running={running} serialTick={serialTick} />
+          <div className="card overflow-hidden p-0">
+            <div className="flex items-center gap-1 border-b border-slate-200 px-2 py-1.5">
+              {[['circuit', 'Circuit', Cable], ['3d', '3D board', Box]].map(([id, label, Icon]) => (
+                <button key={id} type="button" onClick={() => setTab(id)} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${tab === id ? 'bg-navy-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}><Icon size={14} /> {label}</button>
+              ))}
+              <span className="ml-auto pr-2 text-[11px] text-slate-400">{circuit.parts.filter((p) => p.type !== 'breadboard').length} parts · {circuit.wires.length} wires</span>
+            </div>
+            <div className="h-[26rem] sm:h-[34rem]">
+              {tab === 'circuit' ? (
+                top ? (
+                  <Workbench board={board} top={top} circuit={circuit} onChange={setCircuit} sim={solved} running={running} pins={pins} selected={selected} onSelect={setSelected} onPress={pressPart} wireColor={wireColor} apiRef={workbench} />
+                ) : (
+                  <p className="grid h-full place-items-center p-6 text-center text-sm text-slate-500">The circuit workbench needs WebGL, which this browser has turned off.</p>
+                )
+              ) : (
+                <Board3D board={board} pins={pins} wired={solved.wiredPins} running={running} serialTick={serialTick} />
+              )}
+            </div>
           </div>
           <div className="card p-4">
-            <PartsPanel board={board} parts={parts} pins={pins} running={running} onChange={setParts} onPress={pressPart} />
+            <CircuitPanel board={board} circuit={circuit} selected={selected} sim={solved} running={running} onAdd={addPart} onChange={setCircuit} onPress={pressPart} wireColor={wireColor} onWireColor={setWireColor} />
           </div>
         </div>
 

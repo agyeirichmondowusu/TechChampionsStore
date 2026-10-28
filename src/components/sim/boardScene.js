@@ -238,3 +238,40 @@ export function boardThumbnail(id, width = 240, height = 160) {
   thumbs.set(key, url)
   return url
 }
+
+// Straight-down render of a board for the 2D circuit workbench, with every pin and LED projected
+// to millimetre coordinates in the image (origin top-left).
+const tops = new Map()
+export function boardTopView(id, pxPerMm = 12) {
+  if (tops.has(id)) return tops.get(id)
+  const model = buildBoardModel(id)
+  const box = new THREE.Box3().setFromObject(model.group)
+  const pad = 1
+  const w = box.max.x - box.min.x + pad * 2
+  const h = box.max.z - box.min.z + pad * 2
+  const renderer = (boardTopView.renderer ||= new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }))
+  renderer.setPixelRatio(1)
+  renderer.setSize(Math.round(w * pxPerMm), Math.round(h * pxPerMm), false)
+  const scene = new THREE.Scene()
+  setupStage(renderer, scene)
+  scene.children.filter((o) => o.isMesh).forEach((o) => scene.remove(o)) // no floor shadow in the flat view
+  scene.add(model.group)
+  const cx = (box.min.x + box.max.x) / 2
+  const cz = (box.min.z + box.max.z) / 2
+  const camera = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, 1, 500)
+  camera.position.set(cx, 200, cz)
+  camera.up.set(0, 0, -1)
+  camera.lookAt(cx, 0, cz)
+  camera.updateMatrixWorld()
+  renderer.render(scene, camera)
+  const url = renderer.domElement.toDataURL('image/png')
+  const toImage = (v) => [v.x - (cx - w / 2), v.z - (cz - h / 2)]
+  const pins = Object.fromEntries(Object.entries(model.anchors).map(([k, v]) => [k, toImage(v)]))
+  const leds = {}
+  for (const [k, mesh] of Object.entries(model.leds)) leds[k] = toImage(mesh.getWorldPosition(new THREE.Vector3()))
+  disposeTree(model.group)
+  scene.environment?.dispose()
+  const view = { url, width: w, height: h, pins, leds }
+  tops.set(id, view)
+  return view
+}

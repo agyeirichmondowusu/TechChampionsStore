@@ -19,6 +19,7 @@ import { About, Contact, Delivery, Faq, Privacy, Returns, Unsubscribe, NotFound 
 
 // The slicer pulls in three.js, so it loads only when someone opens it.
 const Slicer = lazy(() => import('./pages/Slicer'))
+const Simulator = lazy(() => import('./pages/Simulator'))
 
 export default function App() {
   const { pathname } = useLocation()
@@ -46,6 +47,14 @@ export default function App() {
             element={
               <Suspense fallback={<div className="container-x py-24 text-center text-slate-500">Loading the slicer…</div>}>
                 <Slicer />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/simulator"
+            element={
+              <Suspense fallback={<div className="container-x py-24 text-center text-slate-500">Loading the board simulator…</div>}>
+                <Simulator />
               </Suspense>
             }
           />

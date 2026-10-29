@@ -4,6 +4,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import BackToTop from './components/BackToTop'
 import Toast from './components/Toast'
+import AnalyticsConsent from './components/AnalyticsConsent'
 import Home from './pages/Home'
 import Products from './pages/Products'
 import ProductDetail from './pages/ProductDetail'
@@ -14,10 +15,12 @@ import RobotDetail from './pages/RobotDetail'
 import MeetChamp from './pages/MeetChamp'
 import { Login, Signup } from './pages/Auth'
 import Admin from './pages/Admin'
-import { About, Contact, Delivery, Faq, Returns, NotFound } from './pages/InfoPages'
+import { About, Contact, Delivery, Faq, Privacy, Returns, Unsubscribe, NotFound } from './pages/InfoPages'
 
 // The slicer pulls in three.js, so it loads only when someone opens it.
 const Slicer = lazy(() => import('./pages/Slicer'))
+const Simulator = lazy(() => import('./pages/Simulator'))
+const ChampCore = lazy(() => import('./pages/ChampCore'))
 
 export default function App() {
   const { pathname } = useLocation()
@@ -34,6 +37,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
+          <Route
+            path="/products/champ-core"
+            element={
+              <Suspense fallback={<div className="container-x py-24 text-center text-slate-500">Loading the Champ Core robot…</div>}>
+                <ChampCore />
+              </Suspense>
+            }
+          />
           <Route path="/product/:slug" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
@@ -48,6 +59,14 @@ export default function App() {
               </Suspense>
             }
           />
+          <Route
+            path="/simulator"
+            element={
+              <Suspense fallback={<div className="container-x py-24 text-center text-slate-500">Loading the board simulator…</div>}>
+                <Simulator />
+              </Suspense>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/admin" element={<Admin />} />
@@ -56,12 +75,15 @@ export default function App() {
           <Route path="/returns" element={<Returns />} />
           <Route path="/delivery" element={<Delivery />} />
           <Route path="/faq" element={<Faq />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/unsubscribe" element={<Unsubscribe />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
       {!bare && <Footer />}
       <BackToTop />
       <Toast />
+      <AnalyticsConsent />
     </div>
   )
 }

@@ -47,4 +47,5 @@ export const DEFAULT_SETTINGS = {
   hero_images: [],
   champ_avatar_url: '',
   champ_api_url: '',
+  analytics_mode: 'opt_in', // 'opt_in': count visits after the visitor allows it; 'notice': count unless they opt out
 }

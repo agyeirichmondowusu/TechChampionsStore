@@ -2,3 +2,5 @@ node_modules
 dist
 .env
 .env.local
+# Copied from node_modules by scripts/copy-avr-assets.js
+public/avr

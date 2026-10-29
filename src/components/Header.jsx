@@ -11,6 +11,7 @@ const NAV = [
   { to: '/products', label: 'Our Products' },
   { to: '/robots', label: 'Robots' },
   { to: '/slicer', label: '3D Slicer' },
+  { to: '/simulator', label: 'Simulator' },
   { to: '/meet-champ', label: 'Meet Champ' },
 ]
 

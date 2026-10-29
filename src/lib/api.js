@@ -195,3 +195,62 @@ export function onAuthChange(cb) {
   const { data } = supabase.auth.onAuthStateChange(() => getCurrentUser().then(cb))
   return () => data.subscription.unsubscribe()
 }
+
+// ---------- Emails (Supabase edge function "send-email" + Resend) ----------
+// In demo mode nothing is sent; each email request is logged to a local outbox shown in Admin > Emails.
+export async function sendEmail(payload) {
+  if (isDemo) {
+    LS.set('tcs_outbox', [{ ...payload, at: new Date().toISOString() }, ...LS.get('tcs_outbox', [])].slice(0, 100))
+    return { sent: 0, demo: true }
+  }
+  const { data, error } = await supabase.functions.invoke('send-email', { body: payload })
+  if (error) {
+    let msg = error.message
+    try { msg = (await error.context.json()).error || msg } catch { /* keep message */ }
+    throw new Error(msg)
+  }
+  return data
+}
+
+export const listOutbox = () => LS.get('tcs_outbox', [])
+
+// ---------- Newsletter subscribers ----------
+export async function subscribe({ email, name = '', source = 'footer' }) {
+  email = email.trim().toLowerCase()
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Please enter a valid email address')
+  if (isDemo) {
+    const list = LS.get('tcs_subscribers', [])
+    const existing = list.find((s) => s.email === email)
+    if (existing) existing.unsubscribed_at = null
+    else list.unshift({ id: 'sub-' + Date.now(), email, name, source, token: crypto.randomUUID?.() || String(Date.now()), created_at: new Date().toISOString(), unsubscribed_at: null })
+    return LS.set('tcs_subscribers', list)
+  }
+  const { error } = await supabase.rpc('subscribe', { p_email: email, p_name: name || null, p_source: source })
+  if (error) throw error
+}
+
+export async function unsubscribe(token) {
+  if (isDemo) {
+    const list = LS.get('tcs_subscribers', [])
+    const s = list.find((x) => x.token === token)
+    if (s) s.unsubscribed_at = new Date().toISOString()
+    LS.set('tcs_subscribers', list)
+    return !!s
+  }
+  const { data, error } = await supabase.rpc('unsubscribe', { p_token: token })
+  if (error) throw error
+  return data
+}
+
+export async function listSubscribers() {
+  if (isDemo) return LS.get('tcs_subscribers', [])
+  const { data, error } = await supabase.from('subscribers').select('*').order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function deleteSubscriber(id) {
+  if (isDemo) return LS.set('tcs_subscribers', LS.get('tcs_subscribers', []).filter((s) => s.id !== id))
+  const { error } = await supabase.from('subscribers').delete().eq('id', id)
+  if (error) throw error
+}

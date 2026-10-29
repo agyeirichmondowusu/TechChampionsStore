@@ -20,6 +20,7 @@ import { About, Contact, Delivery, Faq, Privacy, Returns, Unsubscribe, NotFound 
 // The slicer pulls in three.js, so it loads only when someone opens it.
 const Slicer = lazy(() => import('./pages/Slicer'))
 const Simulator = lazy(() => import('./pages/Simulator'))
+const ChampCore = lazy(() => import('./pages/ChampCore'))
 
 export default function App() {
   const { pathname } = useLocation()
@@ -36,6 +37,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
+          <Route
+            path="/products/champ-core"
+            element={
+              <Suspense fallback={<div className="container-x py-24 text-center text-slate-500">Loading the Champ Core robot…</div>}>
+                <ChampCore />
+              </Suspense>
+            }
+          />
           <Route path="/product/:slug" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />

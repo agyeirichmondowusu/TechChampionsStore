@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { SlidersHorizontal, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ArrowRight, SlidersHorizontal, X } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { CATEGORIES } from '../data/defaultSettings'
 import ProductGrid from '../components/ProductGrid'
@@ -53,6 +53,8 @@ export default function Products() {
           {list.length} items{q && <> matching “<b className="text-navy-900">{q}</b>”</>}
         </p>
       </div>
+
+      {!q && !category && <ChampCoreFeature />}
 
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
         <aside className="space-y-5">
@@ -107,3 +109,25 @@ const Pill = ({ children, onClear }) => (
     <button onClick={onClear} className="grid h-5 w-5 place-items-center rounded-full hover:bg-brand-200" aria-label="Clear"><X size={12} /></button>
   </span>
 )
+
+// Our own robotics kit gets a feature slot above the catalogue.
+function ChampCoreFeature() {
+  return (
+    <Link
+      to="/products/champ-core"
+      className="group mb-8 grid overflow-hidden rounded-3xl bg-gradient-to-br from-navy-900 via-navy-800 to-brand-800 text-white shadow-card sm:grid-cols-[1.1fr_1fr]"
+    >
+      <div className="flex flex-col justify-center gap-3 p-6 sm:p-8">
+        <span className="text-xs font-bold uppercase tracking-[0.14em] text-accent-400">New · Made by TechChampions</span>
+        <h2 className="font-display text-2xl font-extrabold leading-tight sm:text-3xl">Champ Core Robotics Kit</h2>
+        <p className="max-w-md text-sm text-brand-100">
+          A sensor-packed trainer board for Uno, ESP32 or Pico W that clips onto a drive base and becomes a line-following robot. See it build itself in 3D.
+        </p>
+        <span className="mt-1 inline-flex items-center gap-2 text-sm font-bold text-white">
+          Explore the kit <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+        </span>
+      </div>
+      <img src="/images/champ-core-kit.webp" alt="Champ Core robot on its line-follower track" loading="lazy" className="h-56 w-full object-cover sm:h-full" />
+    </Link>
+  )
+}
